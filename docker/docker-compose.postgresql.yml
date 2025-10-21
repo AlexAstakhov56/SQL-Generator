@@ -1,0 +1,12 @@
+version: "3.8"
+services:
+  postgresql-test:
+    image: postgres:13
+    container_name: sql-constructor-postgres
+    environment:
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: test_db
+    ports:
+      - "5432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
