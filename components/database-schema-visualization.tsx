@@ -1,12 +1,14 @@
 // components/visualization/database-schema-visualization.tsx
 "use client";
 
+import { useState } from "react";
 import {
   DatabaseSchema,
   TableSchema,
   ColumnDefinition,
   Relationship,
 } from "../lib/types";
+import { TableDataModal } from "./table-data-modal";
 
 interface DatabaseSchemaVisualizationProps {
   schema: DatabaseSchema;
@@ -15,6 +17,8 @@ interface DatabaseSchemaVisualizationProps {
 export function DatabaseSchemaVisualization({
   schema,
 }: DatabaseSchemaVisualizationProps) {
+  const [selectedTable, setSelectedTable] = useState<TableSchema | null>(null);
+
   if (!schema.tables || schema.tables.length === 0) {
     return (
       <div className="bg-white border rounded-lg p-6">
@@ -52,117 +56,128 @@ export function DatabaseSchemaVisualization({
   );
 
   return (
-    <div className="bg-white border rounded-lg p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-medium text-gray-900">
-          🗃️ Визуализация схемы базы данных
-        </h3>
-        <div className="flex gap-2 text-sm text-gray-500">
-          <span>{schema.tables.length} таблиц</span>
-          <span>•</span>
-          <span>{allRelationships.length} связей</span>
-          <span>•</span>
-          <span>
-            {schema.tables.reduce(
-              (acc, table) => acc + table.columns.length,
-              0
-            )}{" "}
-            колонок
-          </span>
-        </div>
-      </div>
-
-      <div className="bg-gray-50 rounded-lg p-4 border">
-        {/* Легенда */}
-        <div className="flex flex-wrap gap-4 mb-4 pb-3 border-b">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-yellow-100 border border-yellow-300 rounded"></div>
-            <span className="text-xs text-gray-600">PK - Первичный ключ</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-blue-100 border border-blue-300 rounded"></div>
-            <span className="text-xs text-gray-600">FK - Внешний ключ</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-100 border border-green-300 rounded"></div>
-            <span className="text-xs text-gray-600">UNIQUE - Уникальный</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-purple-100 border border-purple-300 rounded"></div>
-            <span className="text-xs text-gray-600">AI - Auto Increment</span>
+    <>
+      <div className="bg-white border rounded-lg p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-medium text-gray-900">
+            🗃️ Визуализация схемы базы данных
+          </h3>
+          <div className="flex gap-2 text-sm text-gray-500">
+            <span>{schema.tables.length} таблиц</span>
+            <span>•</span>
+            <span>{allRelationships.length} связей</span>
+            <span>•</span>
+            <span>
+              {schema.tables.reduce(
+                (acc, table) => acc + table.columns.length,
+                0
+              )}{" "}
+              колонок
+            </span>
           </div>
         </div>
 
-        {/* Таблицы */}
-        <div className="flex flex-wrap gap-4">
-          {schema.tables.map((table) => (
-            <TableCard
-              key={table.id}
-              table={table}
-              allTables={schema.tables}
-              relationships={allRelationships}
-            />
-          ))}
-        </div>
-
-        {/* Информация о связях */}
-        {allRelationships.length > 0 && (
-          <div className="mt-6 pt-4 border-t">
-            <h4 className="text-sm font-medium text-gray-700 mb-3">
-              Связи между таблицами:
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-              {allRelationships.map((relationship) => {
-                const sourceTable = schema.tables.find(
-                  (t) => t.id === relationship.sourceTableId
-                );
-                const targetTable = schema.tables.find(
-                  (t) => t.id === relationship.targetTableId
-                );
-                const sourceColumn = sourceTable?.columns.find(
-                  (c) => c.id === relationship.sourceColumnId
-                );
-                const targetColumn = targetTable?.columns.find(
-                  (c) => c.id === relationship.targetColumnId
-                );
-
-                if (
-                  !sourceTable ||
-                  !targetTable ||
-                  !sourceColumn ||
-                  !targetColumn
-                )
-                  return null;
-
-                return (
-                  <div
-                    key={relationship.id}
-                    className="bg-white p-2 rounded border text-gray-600"
-                  >
-                    <span className="font-medium">
-                      {sourceTable.name}.{sourceColumn.name}
-                    </span>
-                    <span className="mx-2">→</span>
-                    <span className="font-medium">
-                      {targetTable.name}.{targetColumn.name}
-                    </span>
-                    <span className="text-gray-400 ml-2">
-                      (
-                      {relationship.type === "ONE_TO_ONE"
-                        ? "1:1"
-                        : relationship.type === "ONE_TO_MANY"
-                        ? "1:N"
-                        : "N:N"}
-                      )
-                    </span>
-                  </div>
-                );
-              })}
+        <div className="bg-gray-50 rounded-lg p-4 border">
+          {/* Легенда */}
+          <div className="flex flex-wrap gap-4 mb-4 pb-3 border-b">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-yellow-100 border border-yellow-300 rounded"></div>
+              <span className="text-xs text-gray-600">PK - Первичный ключ</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-blue-100 border border-blue-300 rounded"></div>
+              <span className="text-xs text-gray-600">FK - Внешний ключ</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-100 border border-green-300 rounded"></div>
+              <span className="text-xs text-gray-600">UNIQUE - Уникальный</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-purple-100 border border-purple-300 rounded"></div>
+              <span className="text-xs text-gray-600">AI - Auto Increment</span>
             </div>
           </div>
-        )}
+
+          {/* Таблицы */}
+          <div className="flex flex-wrap gap-4">
+            {schema.tables.map((table) => (
+              <TableCard
+                key={table.id}
+                table={table}
+                allTables={schema.tables}
+                relationships={allRelationships}
+                onTableClick={setSelectedTable}
+              />
+            ))}
+          </div>
+
+          {/* Информация о связях */}
+          {allRelationships.length > 0 && (
+            <div className="mt-6 pt-4 border-t">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">
+                Связи между таблицами:
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                {allRelationships.map((relationship) => {
+                  const sourceTable = schema.tables.find(
+                    (t) => t.id === relationship.sourceTableId
+                  );
+                  const targetTable = schema.tables.find(
+                    (t) => t.id === relationship.targetTableId
+                  );
+                  const sourceColumn = sourceTable?.columns.find(
+                    (c) => c.id === relationship.sourceColumnId
+                  );
+                  const targetColumn = targetTable?.columns.find(
+                    (c) => c.id === relationship.targetColumnId
+                  );
+
+                  if (
+                    !sourceTable ||
+                    !targetTable ||
+                    !sourceColumn ||
+                    !targetColumn
+                  )
+                    return null;
+
+                  return (
+                    <div
+                      key={relationship.id}
+                      className="bg-white p-2 rounded border text-gray-600"
+                    >
+                      <span className="font-medium">
+                        {sourceTable.name}.{sourceColumn.name}
+                      </span>
+                      <span className="mx-2">→</span>
+                      <span className="font-medium">
+                        {targetTable.name}.{targetColumn.name}
+                      </span>
+                      <span className="text-gray-400 ml-2">
+                        (
+                        {relationship.type === "ONE_TO_ONE"
+                          ? "1:1"
+                          : relationship.type === "ONE_TO_MANY"
+                          ? "1:N"
+                          : "N:N"}
+                        )
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Модальное окно с данными таблицы */}
+      {selectedTable && (
+        <TableDataModal
+          table={selectedTable}
+          onClose={() => setSelectedTable(null)}
+        />
+      )}
+    </>
   );
 }
 
@@ -171,16 +186,25 @@ interface TableCardProps {
   table: TableSchema;
   allTables: TableSchema[];
   relationships: Relationship[];
+  onTableClick: (table: TableSchema) => void;
 }
 
-function TableCard({ table, allTables, relationships }: TableCardProps) {
+function TableCard({
+  table,
+  allTables,
+  relationships,
+  onTableClick,
+}: TableCardProps) {
   // Находим связи для этой таблицы
   const tableRelationships = relationships.filter(
     (rel) => rel.sourceTableId === table.id || rel.targetTableId === table.id
   );
 
   return (
-    <div className="bg-white border rounded-lg p-3 min-w-[250px] shadow-sm hover:shadow-md transition-shadow">
+    <div
+      className="bg-white border rounded-lg p-3 min-w-[250px] shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+      onClick={() => onTableClick(table)}
+    >
       {/* Заголовок таблицы */}
       <div className="flex justify-between items-start mb-2">
         <div>
@@ -210,11 +234,21 @@ function TableCard({ table, allTables, relationships }: TableCardProps) {
           />
         ))}
       </div>
+
+      {/* Информация о данных */}
+      <div className="mt-3 pt-2 border-t border-gray-200">
+        <div className="flex justify-between items-center text-xs text-gray-500">
+          <span>{table.data?.length || 0} строк данных</span>
+          <span className="text-blue-600 hover:text-blue-800">
+            Просмотреть данные →
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
 
-// Компонент для отображения колонки
+// Компонент для отображения колонки (остается без изменений)
 interface ColumnRowProps {
   column: ColumnDefinition;
   table: TableSchema;
@@ -262,15 +296,6 @@ function ColumnRow({
               FK
             </span>
           )}
-          {/* {column.constraints.includes("UNIQUE") &&
-            !column.constraints.includes("PRIMARY_KEY") && (
-              <span
-                className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded border border-green-200"
-                title="Unique"
-              >
-                UQ
-              </span>
-            )} */}
           {column.constraints.includes("AUTO_INCREMENT") && (
             <span
               className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded border border-purple-200"
