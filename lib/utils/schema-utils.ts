@@ -35,6 +35,7 @@ export function createDefaultTable(): TableSchema {
     ],
     indexes: [],
     relationships: [],
+    data: [],
     createdAt: new Date(),
     updatedAt: new Date(),
   };

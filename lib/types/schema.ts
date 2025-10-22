@@ -52,6 +52,7 @@ export interface TableSchema {
   columns: ColumnDefinition[];
   indexes: IndexDefinition[];
   relationships: Relationship[];
+  data?: Record<string, any>[];
   createdAt: Date;
   updatedAt: Date;
   // dbSpecific?: {

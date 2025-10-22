@@ -210,23 +210,6 @@ function TableCard({ table, allTables, relationships }: TableCardProps) {
           />
         ))}
       </div>
-
-      {/* Индексы */}
-      {table.indexes.length > 0 && (
-        <div className="mt-3 pt-2 border-t">
-          <div className="text-xs text-gray-500 mb-1">Индексы:</div>
-          <div className="space-y-1">
-            {table.indexes.map((index) => (
-              <div
-                key={index.id}
-                className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded"
-              >
-                {index.name} {index.unique && "(UNIQUE)"}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -326,11 +309,13 @@ function ColumnRow({
           </span>
         )}
 
-        {!column.nullable && !column.constraints.includes("PRIMARY_KEY") && (
-          <span className="text-xs text-red-500" title="Not Null">
-            NN
-          </span>
-        )}
+        {(column.constraints?.includes("NOT_NULL") ||
+          column.nullable === false) &&
+          !column.constraints?.includes("PRIMARY_KEY") && (
+            <span className="text-xs text-red-500" title="Not Null">
+              NN
+            </span>
+          )}
       </div>
     </div>
   );

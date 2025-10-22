@@ -9,6 +9,7 @@ import {
 import { createDefaultColumn } from "../../lib/utils/schema-utils";
 import { ColumnEditor } from "./column-editor";
 import { IndexEditor } from "./index-editor";
+import { DataEditor } from "./data-editor";
 
 interface TableEditorProps {
   table: TableSchema;
@@ -16,7 +17,11 @@ interface TableEditorProps {
 }
 
 export function TableEditor({ table, onTableChange }: TableEditorProps) {
-  const [activeTab, setActiveTab] = useState<"columns" | "indexes">("columns");
+  const [activeTab, setActiveTab] = useState<"columns" | "data">("columns");
+
+  const handleDataChange = (data: Record<string, any>[]) => {
+    onTableChange({ data });
+  };
 
   // Работа с колонками
   const addColumn = () => {
@@ -103,6 +108,16 @@ export function TableEditor({ table, onTableChange }: TableEditorProps) {
           >
             🏗️ Колонки ({table.columns.length})
           </button>
+          <button
+            onClick={() => setActiveTab("data")}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === "data"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            📝 Данные ({table.data?.length || 0})
+          </button>
           {/* <button
             onClick={() => setActiveTab("indexes")}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${
@@ -125,6 +140,10 @@ export function TableEditor({ table, onTableChange }: TableEditorProps) {
           onRemoveColumn={removeColumn}
           onMoveColumn={moveColumn}
         />
+      )}
+
+      {activeTab === "data" && (
+        <DataEditor table={table} onDataChange={handleDataChange} />
       )}
 
       {/* {activeTab === "indexes" && (

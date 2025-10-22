@@ -2,7 +2,7 @@ import { DatabaseType } from "./base";
 
 export interface GeneratedSQL {
   sql: string;
-  dbType: DatabaseType;
+  dbType?: DatabaseType;
   warnings: string[];
   errors: string[];
   timestamp?: Date;

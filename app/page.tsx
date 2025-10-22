@@ -56,7 +56,7 @@ export default function Home() {
           name: "email",
           type: "VARCHAR",
           nullable: false,
-          constraints: [],
+          constraints: ["NOT_NULL"],
           defaultValue: "",
           dbSpecific: {
             mysql: {},

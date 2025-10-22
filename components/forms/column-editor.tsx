@@ -20,7 +20,6 @@ export function ColumnEditor({
   onAddColumn,
   onUpdateColumn,
   onRemoveColumn,
-  onMoveColumn,
 }: ColumnEditorProps) {
   const handleConstraintChange = (
     columnId: string,
@@ -31,7 +30,23 @@ export function ColumnEditor({
     if (!column) return;
 
     if (constraint === "NOT_NULL") {
-      onUpdateColumn(columnId, { nullable: !enabled });
+      let updatedConstraints = [...(column.constraints || [])];
+
+      if (enabled) {
+        if (!updatedConstraints.includes("NOT_NULL")) {
+          updatedConstraints.push("NOT_NULL");
+        }
+        onUpdateColumn(columnId, {
+          constraints: updatedConstraints,
+          nullable: false,
+        });
+      } else {
+        updatedConstraints = updatedConstraints.filter((c) => c !== "NOT_NULL");
+        onUpdateColumn(columnId, {
+          constraints: updatedConstraints,
+          nullable: true,
+        });
+      }
     } else {
       if (enabled) {
         onUpdateColumn(
@@ -52,7 +67,10 @@ export function ColumnEditor({
     constraint: string
   ): boolean => {
     if (constraint === "NOT_NULL") {
-      return !column.nullable;
+      return (
+        !column.nullable ||
+        (column.constraints && column.constraints.includes("NOT_NULL"))
+      );
     }
     return constraintUtils.hasConstraint(column, constraint as any);
   };
