@@ -24,14 +24,22 @@ export type DataType =
 
 export type Constraint =
   | "PRIMARY_KEY"
-  | "UNIQUE"
+  // | "UNIQUE"
   | "NOT_NULL"
   | "AUTO_INCREMENT"
   | "FOREIGN_KEY"
   | "CHECK"
   | "DEFAULT";
 
-export type IndexType = "PRIMARY" | "UNIQUE" | "INDEX" | "FULLTEXT";
+export type IndexType =
+  | "PRIMARY"
+  | "UNIQUE"
+  | "INDEX"
+  | "BTREE"
+  | "HASH"
+  | "FULLTEXT"
+  | "SPATIAL"
+  | "RTREE";
 
 export type ForeignKeyAction =
   | "CASCADE"

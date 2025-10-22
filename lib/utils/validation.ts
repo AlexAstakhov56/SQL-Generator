@@ -3,7 +3,7 @@ import { TableSchema, ColumnDefinition } from "../types";
 export interface ValidationResult {
   isValid: boolean;
   errors: string[];
-  warnings: string[];
+  warnings?: string[];
 }
 
 export function validateTableSchema(schema: TableSchema): ValidationResult {
@@ -55,7 +55,7 @@ export function validateTableSchema(schema: TableSchema): ValidationResult {
   schema.columns.forEach((column, index) => {
     const columnErrors = validateColumn(column, index);
     errors.push(...columnErrors.errors);
-    warnings.push(...columnErrors.warnings);
+    //warnings.push(...columnErrors.warnings);
   });
 
   return {

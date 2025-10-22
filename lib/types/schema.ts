@@ -40,6 +40,7 @@ export interface Relationship {
   sourceColumnId: string;
   targetTableId: string;
   targetColumnId: string;
+  type: "ONE_TO_ONE" | "ONE_TO_MANY" | "MANY_TO_MANY";
   onDelete: ForeignKeyAction;
   onUpdate: ForeignKeyAction;
 }
@@ -53,10 +54,22 @@ export interface TableSchema {
   relationships: Relationship[];
   createdAt: Date;
   updatedAt: Date;
+  // dbSpecific?: {
+  //   mysql?: {
+  //     engine?: string;
+  //     charset?: string;
+  //     collation?: string;
+  //   };
+  //   postgresql?: {
+  //     tablespace?: string;
+  //   };
+  //   sqlite?: {
+  //     withoutRowid?: boolean;
+  //   };
+  // };
 }
 
-// Проект - коллекция таблиц
-export interface DatabaseProject {
+export interface DatabaseSchema {
   id: string;
   name: string;
   description?: string;
@@ -65,7 +78,6 @@ export interface DatabaseProject {
   updatedAt: Date;
 }
 
-// Специфичные конфигурации для СУБД
 export interface MySqlColumnConfig {
   charset?: string;
   collation?: string;
@@ -84,15 +96,17 @@ export interface SqliteColumnConfig {
 }
 
 export interface MySqlIndexConfig {
-  using?: "BTREE" | "HASH";
+  indexType?: "DEFAULT" | "USING BTREE" | "USING HASH";
   comment?: string;
+  visibility?: "VISIBLE" | "INVISIBLE";
 }
 
 export interface PostgreSqlIndexConfig {
-  using?: "BTREE" | "HASH" | "GIST" | "GIN";
-  fillfactor?: number;
+  method?: "DEFAULT" | "btree" | "hash" | "gist" | "gin" | "spgist" | "brin";
+  tablespace?: string;
+  where?: string;
 }
 
 export interface SqliteIndexConfig {
-  // SQLite имеет ограниченные опции для индексов
+  where?: string;
 }

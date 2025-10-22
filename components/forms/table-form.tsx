@@ -105,9 +105,6 @@ export function TableForm({
               <p className="text-sm text-gray-600 mt-1">
                 Таблица:{" "}
                 <span className="font-mono font-semibold">{schema.name}</span>
-                {schema.comment && (
-                  <span className="ml-2 text-gray-500">- {schema.comment}</span>
-                )}
               </p>
             )}
           </div>
@@ -126,23 +123,21 @@ export function TableForm({
                 <>🚀 Сгенерировать SQL</>
               )}
             </Button>
-            {onTest && (
-              <Button
-                variant="danger"
-                onClick={handleTest}
-                disabled={!canGenerateSQL || isTesting || isGenerating}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                {isTesting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    Тестирование...
-                  </>
-                ) : (
-                  <>🧪 Протестировать</>
-                )}
-              </Button>
-            )}
+            <Button
+              variant="danger"
+              onClick={handleTest}
+              disabled={!canGenerateSQL || isTesting || isGenerating}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              {isTesting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  Тестирование...
+                </>
+              ) : (
+                <>🧪 Протестировать</>
+              )}
+            </Button>
           </div>
         </div>
 
@@ -158,10 +153,10 @@ export function TableForm({
             </span>
             <span>Primary Keys</span>
           </div>
-          {/* <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <span className="font-semibold">{schema.indexes.length}</span>
-            <span>индексов</span>
-          </div> */}
+            <span>Indexes</span>
+          </div>
           {schema.relationships && schema.relationships.length > 0 && (
             <div className="flex items-center gap-2">
               <span className="font-semibold">

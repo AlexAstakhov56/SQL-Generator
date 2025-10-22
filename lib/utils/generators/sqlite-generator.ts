@@ -1,27 +1,53 @@
+// lib/utils/generators/sqlite-generator.ts
 import {
   TableSchema,
   ColumnDefinition,
-  DatabaseType,
-  Relationship,
+  GenerationOptions,
+  DEFAULT_GENERATION_OPTIONS,
 } from "../../types";
 import { BaseSQLGenerator } from "./base-generator";
 
 export class SQLiteGenerator extends BaseSQLGenerator {
-  generateCreateTable(schema: TableSchema): string {
+  generateCreateTable(
+    schema: TableSchema,
+    options: GenerationOptions = DEFAULT_GENERATION_OPTIONS
+  ): string {
     const columnsSQL = this.generateColumns(schema.columns, "sqlite");
-    const indexesSQL = this.generateIndexes(
-      schema.indexes,
-      schema.name,
+
+    // Генерируем PRIMARY KEY отдельно
+    const primaryKeysSQL = this.generatePrimaryKeys(schema.columns);
+
+    // Генерируем FOREIGN KEYS
+    const foreignKeysSQL = this.generateForeignKeys(
+      schema.relationships,
       "sqlite"
     );
 
-    let sql = `CREATE TABLE ${this.escapeName(schema.name)} (\n`;
+    let sql = `CREATE TABLE `;
+
+    if (options.includeIfNotExists) {
+      sql += "IF NOT EXISTS ";
+    }
+
+    sql += `${this.escapeName(schema.name)} (\n`;
     sql += columnsSQL;
+
+    // Добавляем PRIMARY KEY если есть
+    if (primaryKeysSQL) {
+      sql += `,\n${primaryKeysSQL}`;
+    }
+
+    // Добавляем FOREIGN KEYS если есть
+    if (foreignKeysSQL) {
+      sql += `,\n${foreignKeysSQL}`;
+    }
+
     sql += "\n);";
 
-    // Добавляем индексы
-    if (indexesSQL) {
-      sql += "\n" + indexesSQL;
+    // Добавляем комментарии если есть (SQLite не поддерживает COMMENT ON)
+    // В SQLite комментарии добавляются отдельными запросами
+    if (schema.comment) {
+      sql += `\n-- ${schema.comment}`;
     }
 
     return sql;
@@ -47,64 +73,140 @@ export class SQLiteGenerator extends BaseSQLGenerator {
     )})\nVALUES ${values};`;
   }
 
-  protected generateColumnDefinition(
-    column: ColumnDefinition,
-    dbType: DatabaseType
-  ): string {
-    let sql = `  ${this.escapeName(column.name)} ${this.getDataType(column)}`;
+  protected generateColumnDefinition(column: ColumnDefinition): string {
+    const parts: string[] = [];
 
+    // Имя колонки
+    parts.push(`  ${this.escapeName(column.name)}`);
+
+    // Тип данных
+    parts.push(this.getDataType(column));
+
+    // NOT NULL
     if (!column.nullable) {
-      sql += " NOT NULL";
+      parts.push("NOT NULL");
     }
 
-    if (column.constraints.includes("UNIQUE")) {
-      sql += " UNIQUE";
-    }
-
+    // PRIMARY KEY (только если одна колонка, иначе выносим в отдельный constraint)
     if (column.constraints.includes("PRIMARY_KEY")) {
-      sql += " PRIMARY KEY";
+      // Для SQLite PRIMARY KEY может быть в определении колонки только если это одна колонка
+      parts.push("PRIMARY KEY");
     }
 
-    if (column.constraints.includes("AUTO_INCREMENT")) {
-      sql += " AUTOINCREMENT";
+    // AUTOINCREMENT (только для INTEGER PRIMARY KEY)
+    if (
+      column.constraints.includes("AUTO_INCREMENT") &&
+      column.constraints.includes("PRIMARY_KEY") &&
+      column.type === "INTEGER"
+    ) {
+      parts.push("AUTOINCREMENT");
     }
 
-    if (column.defaultValue !== undefined) {
-      sql += ` DEFAULT ${this.formatValue(column.defaultValue)}`;
+    // UNIQUE
+    // if (column.constraints.includes("UNIQUE")) {
+    //   parts.push("UNIQUE");
+    // }
+
+    // DEFAULT (не добавляем для AUTOINCREMENT полей)
+    if (
+      column.defaultValue !== undefined &&
+      column.defaultValue !== "" &&
+      !column.constraints.includes("AUTO_INCREMENT")
+    ) {
+      parts.push(
+        `DEFAULT ${this.formatDefaultValue(column.defaultValue, column.type)}`
+      );
     }
 
-    return sql;
+    return parts.join(" ");
+  }
+
+  // Переопределяем метод для SQLite (особенности с PRIMARY KEY)
+  protected generatePrimaryKeys(columns: ColumnDefinition[]): string {
+    const primaryKeyColumns = columns.filter((col) =>
+      col.constraints.includes("PRIMARY_KEY")
+    );
+
+    // Если первичный ключ составной (несколько колонок), генерируем отдельный constraint
+    if (primaryKeyColumns.length > 1) {
+      const pkColumnNames = primaryKeyColumns
+        .map((col) => this.escapeName(col.name))
+        .join(", ");
+      return `  PRIMARY KEY (${pkColumnNames})`;
+    }
+
+    // Если первичный ключ одной колонки, он уже добавлен в определении колонки
+    return "";
   }
 
   protected getDataType(column: ColumnDefinition): string {
-    const { type } = column;
+    const { type, length } = column;
 
+    // SQLite имеет гибкую типизацию, но лучше использовать стандартные типы
     switch (type) {
       case "INTEGER":
+        return "INTEGER";
       case "BIGINT":
+        return "INTEGER"; // SQLite использует INTEGER для всех целых чисел
+      case "SMALLINT":
         return "INTEGER";
       case "VARCHAR":
       case "TEXT":
-      case "CHAR":
         return "TEXT";
-      case "DECIMAL":
-      case "NUMERIC":
-      case "FLOAT":
-      case "REAL":
-        return "REAL";
+      case "CHAR":
+        return "TEXT"; // SQLite не различает CHAR и TEXT
       case "BOOLEAN":
-      case "BOOL":
-        return "INTEGER";
+        return "INTEGER"; // SQLite использует 0/1 для boolean
       case "DATE":
-      case "TIME":
+        return "TEXT"; // SQLite хранит даты как TEXT в формате ISO
       case "DATETIME":
       case "TIMESTAMP":
         return "TEXT";
+      case "REAL":
+        return "REAL";
       case "BLOB":
         return "BLOB";
+      case "NUMERIC":
+        return "NUMERIC";
       default:
         return "TEXT";
     }
+  }
+
+  protected formatDefaultValue(value: any, columnType?: string): string {
+    if (value === null || value === undefined) {
+      return "NULL";
+    }
+
+    if (typeof value === "number") {
+      return value.toString();
+    }
+
+    if (typeof value === "boolean") {
+      return value ? "1" : "0"; // SQLite использует 1/0 для boolean
+    }
+
+    if (value instanceof Date) {
+      return `'${value.toISOString()}'`;
+    }
+
+    const stringValue = value.toString();
+
+    // Специальные ключевые слова SQLite
+    const upperValue = stringValue.toUpperCase();
+    if (
+      upperValue === "CURRENT_TIMESTAMP" ||
+      upperValue === "CURRENT_TIME" ||
+      upperValue === "CURRENT_DATE"
+    ) {
+      return upperValue;
+    }
+    if (upperValue === "NULL") {
+      return "NULL";
+    }
+
+    // Для строковых типов добавляем кавычки
+    return `'${this.escapeString(stringValue)}'`;
   }
 
   protected escapeName(name: string): string {
@@ -121,7 +223,7 @@ export class SQLiteGenerator extends BaseSQLGenerator {
     }
 
     if (typeof value === "boolean") {
-      return value ? "1" : "0";
+      return value ? "1" : "0"; // SQLite использует 1/0 для boolean
     }
 
     if (value instanceof Date) {
@@ -135,16 +237,8 @@ export class SQLiteGenerator extends BaseSQLGenerator {
     return str.replace(/'/g, "''");
   }
 
-  protected generateForeignKeyDefinition(relationship: Relationship): string {
-    const sourceColumn = this.escapeName(relationship.sourceColumnId);
-    const targetTable = this.escapeName(relationship.targetTableId);
-    const targetColumn = this.escapeName(relationship.targetColumnId);
-
-    let sql = `FOREIGN KEY (${sourceColumn})`;
-    sql += ` REFERENCES ${targetTable} (${targetColumn})`;
-    sql += ` ON DELETE ${relationship.onDelete}`;
-    sql += ` ON UPDATE ${relationship.onUpdate}`;
-
-    return sql;
+  // SQLite специфичные методы
+  generateEnableForeignKeys(): string {
+    return "PRAGMA foreign_keys = ON;";
   }
 }

@@ -1,46 +1,100 @@
 "use client";
 
-import { useState } from "react";
-import { TableSchema, GeneratedSQL, DatabaseType } from "../lib/types";
-import { TableForm } from "../components/forms/table-form";
-import { DBSelector } from "../components/testing/db-selector";
+import { useState, useEffect } from "react";
+import { DatabaseSchema, DatabaseType, TableSchema } from "../lib/types";
+import { MultiTableUtils } from "../lib/utils/multi-table-utils";
+import { MultiTableGenerator } from "../lib/utils/generators/multi-table-generator";
+import { DatabaseSchemaEditor } from "../components/tables/database-schema-editor";
+import { DBSelector } from "../components/db-selector";
 import { SQLPreview } from "../components/constructor/sql-preview";
+import { DatabaseSchemaVisualization } from "@/components/database-schema-visualization";
 
 export default function Home() {
   const [selectedDB, setSelectedDB] = useState<DatabaseType>("sqlite");
-  const [generatedSQL, setGeneratedSQL] = useState<
-    Partial<Record<DatabaseType, GeneratedSQL>>
-  >({});
-  const [isTesting, setIsTesting] = useState(false);
+  const [databaseSchema, setDatabaseSchema] = useState<DatabaseSchema>(
+    MultiTableUtils.createDatabaseSchema("my_database")
+  );
+  const [generatedSQL, setGeneratedSQL] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
 
-  const handleGenerateSQL = async (schema: TableSchema) => {
+  useEffect(() => {
+    const initialSchema = MultiTableUtils.createDatabaseSchema("my_database");
+
+    const exampleTable: TableSchema = {
+      id: `table_${Date.now()}`,
+      name: "users",
+      columns: [
+        {
+          id: `col_${Date.now()}_1`,
+          name: "user_id",
+          type: "INTEGER",
+          nullable: false,
+          constraints: ["PRIMARY_KEY", "AUTO_INCREMENT"],
+          defaultValue: "",
+          dbSpecific: {
+            mysql: {},
+            postgresql: {},
+            sqlite: {},
+          },
+        },
+        {
+          id: `col_${Date.now()}_2`,
+          name: "username",
+          type: "VARCHAR",
+          nullable: false,
+          constraints: ["NOT_NULL"],
+          defaultValue: "",
+          dbSpecific: {
+            mysql: {},
+            postgresql: {},
+            sqlite: {},
+          },
+        },
+        {
+          id: `col_${Date.now()}_3`,
+          name: "email",
+          type: "VARCHAR",
+          nullable: false,
+          constraints: [],
+          defaultValue: "",
+          dbSpecific: {
+            mysql: {},
+            postgresql: {},
+            sqlite: {},
+          },
+        },
+      ],
+      indexes: [],
+      relationships: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      // dbSpecific: {
+      //   mysql: {},
+      //   postgresql: {},
+      //   sqlite: {},
+      // },
+    };
+
+    setDatabaseSchema({
+      ...initialSchema,
+      tables: [exampleTable],
+    });
+  }, []);
+
+  const handleGenerateSQL = async (schema: DatabaseSchema) => {
     setIsGenerating(true);
     console.log("📤 Отправляемые данные:", { schema, selectedDB });
-    try {
-      const response = await fetch("/api/generate-sql", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ schema, selectedDB }),
-      });
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log("📦 Полученные данные от API:", data);
-        const sqlString = data.sql?.sql;
-        console.log("🔍 Извлеченный SQL:", sqlString);
-        if (sqlString) {
-          setGeneratedSQL((prev) => ({
-            ...prev,
-            [selectedDB]: { sql: sqlString }, // Сохраняем как объект с полем sql
-          }));
-        }
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to generate SQL");
-      }
+    try {
+      // Генерация SQL для всей схемы
+      const sql = MultiTableGenerator.generateDatabaseSchema(
+        schema,
+        selectedDB
+      );
+      console.log("🔧 Сгенерированный SQL:", sql);
+
+      setGeneratedSQL(sql);
     } catch (error: any) {
       console.error("Generate SQL error:", error);
       alert("Ошибка при генерации SQL: " + error.message);
@@ -49,64 +103,51 @@ export default function Home() {
     }
   };
 
-  const handleTestTable = async (schema: TableSchema) => {
+  const handleTestSchema = async (schema: DatabaseSchema) => {
     setIsTesting(true);
+
     try {
-      // Сначала генерируем SQL
-      const generateResponse = await fetch("/api/generate-sql", {
+      // Генерация SQL для тестирования
+      const sql = MultiTableGenerator.generateDatabaseSchema(
+        schema,
+        selectedDB
+      );
+      console.log("🧪 SQL для тестирования:", sql);
+
+      if (!sql) {
+        alert("Не удалось сгенерировать SQL для тестирования.");
+        return;
+      }
+
+      // Тестируем запрос
+      const testResponse = await fetch("/api/test-query", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ schema, selectedDB }),
+        body: JSON.stringify({
+          query: sql,
+          selectedDB,
+        }),
       });
 
-      if (!generateResponse.ok) {
-        const errorData = await generateResponse.json();
-        throw new Error(
-          errorData.error || "Failed to generate SQL for testing"
-        );
-      }
+      if (testResponse.ok) {
+        const results = await testResponse.json();
+        console.log("Test results:", results);
 
-      const sqlData = await generateResponse.json();
-      const query = sqlData[selectedDB]?.sql || sqlData.sql || sqlData;
-
-      if (query) {
-        // Обновляем отображение SQL
-        setGeneratedSQL((prev) => ({
-          ...prev,
-          [selectedDB]: typeof query === "string" ? { sql: query } : query,
-        }));
-
-        // Тестируем запрос
-        const testResponse = await fetch("/api/test-query", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ query, selectedDB }),
-        });
-
-        if (testResponse.ok) {
-          const results = await testResponse.json();
-          console.log("Test results:", results);
-
-          if (results.success) {
-            alert(
-              "✅ Тестирование завершено успешно! Проверьте консоль разработчика для деталей."
-            );
-          } else {
-            alert(
-              "❌ Тестирование завершено с ошибкой: " +
-                (results.error || "Unknown error")
-            );
-          }
+        if (results.success) {
+          alert(
+            "✅ Тестирование завершено успешно! Проверьте консоль разработчика для деталей."
+          );
         } else {
-          const errorData = await testResponse.json();
-          throw new Error(errorData.error || "Testing failed");
+          alert(
+            "❌ Тестирование завершено с ошибкой: " +
+              (results.error || "Unknown error")
+          );
         }
       } else {
-        alert("Не удалось сгенерировать SQL запрос для тестирования.");
+        const errorData = await testResponse.json();
+        throw new Error(errorData.error || "Testing failed");
       }
     } catch (error: any) {
       console.error("Test error:", error);
@@ -116,19 +157,44 @@ export default function Home() {
     }
   };
 
-  // Получаем текущий SQL для выбранной БД
-  const currentSQL = generatedSQL[selectedDB]?.sql || "";
+  // Валидация схемы перед генерацией
+  const validateSchema = (schema: DatabaseSchema): boolean => {
+    const validation = MultiTableUtils.validateSchema(schema);
+
+    if (!validation.isValid) {
+      alert("Ошибки валидации:\n" + validation.errors.join("\n"));
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleGenerateWithValidation = async (schema: DatabaseSchema) => {
+    if (!validateSchema(schema)) {
+      return;
+    }
+
+    await handleGenerateSQL(schema);
+  };
+
+  const handleTestWithValidation = async (schema: DatabaseSchema) => {
+    if (!validateSchema(schema)) {
+      return;
+    }
+
+    await handleTestSchema(schema);
+  };
 
   return (
     <div className="min-h-screen py-8">
       <div className="container mx-auto px-4 max-w-7xl">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            🏗️ SQL Конструктор
+            🗃️ SQL Конструктор (Многотабличный)
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Визуальное создание SQL запросов для создания таблиц в MySQL,
-            PostgreSQL и SQLite
+            Создавайте сложные схемы баз данных с несколькими связанными
+            таблицами
           </p>
         </div>
 
@@ -136,72 +202,29 @@ export default function Home() {
           <DBSelector selectedDB={selectedDB} onDBChange={setSelectedDB} />
         </div>
 
-        <div>
-          <TableForm
-            onSubmit={handleGenerateSQL}
-            onTest={handleTestTable}
-            isGenerating={isGenerating}
-            isTesting={isTesting}
-          />
-        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          {/* Основной редактор схемы */}
+          <div className="xl:col-span-2">
+            <DatabaseSchemaEditor
+              schema={databaseSchema}
+              onSchemaChange={setDatabaseSchema}
+              onGenerateSQL={handleGenerateWithValidation}
+              onTestSQL={handleTestWithValidation}
+              isGenerating={isGenerating}
+              isTesting={isTesting}
+            />
+          </div>
 
-        {currentSQL && (
-          <h2 className="text-center font-bold text-xl mb-4">
-            Сгенерированный SQL:
-          </h2>
-        )}
-
-        <div>
-          {currentSQL ? (
-            <SQLPreview sql={currentSQL} selectedDB={selectedDB} />
-          ) : (
-            <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
-              <div className="text-gray-400 mb-2">
-                <svg
-                  className="w-12 h-12 mx-auto"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1}
-                    d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                SQL будет здесь
-              </h3>
-              <p className="text-gray-500 text-sm">
-                Сгенерируйте SQL запрос для просмотра
-              </p>
+          {/* Панель предпросмотра SQL */}
+          <div className="xl:col-span-1">
+            <div className="sticky top-8">
+              <SQLPreview sql={generatedSQL} selectedDB={selectedDB} />
             </div>
-          )}
-        </div>
-
-        {/* Статистика */}
-        {/* <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg p-4 text-center shadow-sm border">
-          <div className="text-2xl font-bold text-blue-600">
-            {Object.keys(generatedSQL).length}
           </div>
-          <div className="text-sm text-gray-600">Сгенерировано SQL</div>
-        </div>
-        <div className="bg-white rounded-lg p-4 text-center shadow-sm border">
-          <div className="text-2xl font-bold text-green-600">
-            {selectedDB.toUpperCase()}
+          <div className="mt-8">
+            <DatabaseSchemaVisualization schema={databaseSchema} />
           </div>
-          <div className="text-sm text-gray-600">Текущая БД</div>
         </div>
-        <div className="bg-white rounded-lg p-4 text-center shadow-sm border">
-          <div className="text-2xl font-bold text-purple-600">
-            {currentSQL ? "✓" : "—"}
-          </div>
-          <div className="text-sm text-gray-600">Активный SQL</div>
-        </div>
-      </div> */}
       </div>
     </div>
   );

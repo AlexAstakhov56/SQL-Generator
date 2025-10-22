@@ -1,174 +1,257 @@
-import { ColumnDefinition, DataType } from "../../lib/types";
-import { DATA_TYPES } from "../../lib/constants/db-types";
+"use client";
+
+import { ColumnDefinition } from "../../lib/types";
+import { constraintUtils } from "../../lib/utils/constraint-utils";
 import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import { Select } from "../ui/select";
 
 interface ColumnEditorProps {
-  column: ColumnDefinition;
-  index: number;
-  onChange: (updates: Partial<ColumnDefinition>) => void;
-  onDelete: () => void;
+  columns: ColumnDefinition[];
+  onAddColumn: () => void;
+  onUpdateColumn: (
+    columnId: string,
+    updates: Partial<ColumnDefinition>
+  ) => void;
+  onRemoveColumn: (columnId: string) => void;
+  onMoveColumn: (columnId: string, direction: "up" | "down") => void;
 }
 
 export function ColumnEditor({
-  column,
-  index,
-  onChange,
-  onDelete,
+  columns,
+  onAddColumn,
+  onUpdateColumn,
+  onRemoveColumn,
+  onMoveColumn,
 }: ColumnEditorProps) {
-  const updateColumn = (updates: Partial<ColumnDefinition>) => {
-    onChange(updates);
+  const handleConstraintChange = (
+    columnId: string,
+    constraint: string,
+    enabled: boolean
+  ) => {
+    const column = columns.find((col) => col.id === columnId);
+    if (!column) return;
+
+    if (constraint === "NOT_NULL") {
+      onUpdateColumn(columnId, { nullable: !enabled });
+    } else {
+      if (enabled) {
+        onUpdateColumn(
+          columnId,
+          constraintUtils.addConstraint(column, constraint as any)
+        );
+      } else {
+        onUpdateColumn(
+          columnId,
+          constraintUtils.removeConstraint(column, constraint as any)
+        );
+      }
+    }
   };
 
-  const toggleConstraint = (constraint: string) => {
-    const currentConstraints = column.constraints;
-    const newConstraints = currentConstraints.includes(constraint as any)
-      ? currentConstraints.filter((c) => c !== constraint)
-      : [...currentConstraints, constraint as any];
-
-    updateColumn({ constraints: newConstraints });
+  const hasConstraint = (
+    column: ColumnDefinition,
+    constraint: string
+  ): boolean => {
+    if (constraint === "NOT_NULL") {
+      return !column.nullable;
+    }
+    return constraintUtils.hasConstraint(column, constraint as any);
   };
-
-  const dataTypeOptions = Object.entries(DATA_TYPES).map(([value, info]) => ({
-    value,
-    label: `${info.name} - ${info.description}`,
-  }));
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="font-semibold text-gray-900 flex items-center gap-2">
-          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">
-            Колонка #{index + 1}
-          </span>
-          {column.constraints.includes("PRIMARY_KEY") && (
-            <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">
-              PRIMARY KEY
-            </span>
-          )}
-        </h4>
-        <Button variant="danger" size="sm" onClick={onDelete}>
-          🗑️ Удалить
+    <div className="space-y-4">
+      {/* Заголовок и кнопка добавления */}
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-medium text-gray-900">Колонки таблицы</h3>
+        <Button onClick={onAddColumn} variant="secondary">
+          + Добавить колонку
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        {/* Имя колонки */}
-        <Input
-          label="Имя колонки"
-          value={column.name}
-          onChange={(e) => updateColumn({ name: e.target.value })}
-          placeholder="username"
-          required
-        />
-
-        {/* Тип данных */}
-        <Select
-          label="Тип данных"
-          value={column.type}
-          onChange={(e) => updateColumn({ type: e.target.value as DataType })}
-          options={dataTypeOptions}
-        />
-
-        {/* Длина/Точность */}
-        {(DATA_TYPES[column.type].supportsLength ||
-          DATA_TYPES[column.type].supportsPrecision) && (
-          <Input
-            label={
-              DATA_TYPES[column.type].supportsPrecision ? "Точность" : "Длина"
-            }
-            type="number"
-            value={column.length || column.precision || ""}
-            onChange={(e) => {
-              const value = e.target.value
-                ? parseInt(e.target.value)
-                : undefined;
-              if (DATA_TYPES[column.type].supportsPrecision) {
-                updateColumn({ precision: value });
-              } else {
-                updateColumn({ length: value });
-              }
-            }}
-            placeholder={
-              DATA_TYPES[column.type].defaultLength?.toString() || "255"
-            }
-          />
-        )}
-
-        {/* Масштаб для DECIMAL */}
-        {(column.type === "DECIMAL" || column.type === "NUMERIC") && (
-          <Input
-            label="Масштаб (decimal places)"
-            type="number"
-            value={column.scale || ""}
-            onChange={(e) =>
-              updateColumn({
-                scale: e.target.value ? parseInt(e.target.value) : undefined,
-              })
-            }
-            placeholder="2"
-          />
-        )}
-      </div>
-
-      {/* Ограничения */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Ограничения
-        </label>
-        <div className="flex flex-wrap gap-4">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={!column.nullable}
-              onChange={(e) => updateColumn({ nullable: !e.target.checked })}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-700">NOT NULL</span>
-          </label>
-
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={column.constraints.includes("PRIMARY_KEY")}
-              onChange={() => toggleConstraint("PRIMARY_KEY")}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-700">PRIMARY KEY</span>
-          </label>
-
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={column.constraints.includes("UNIQUE")}
-              onChange={() => toggleConstraint("UNIQUE")}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-700">UNIQUE</span>
-          </label>
-
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={column.constraints.includes("AUTO_INCREMENT")}
-              onChange={() => toggleConstraint("AUTO_INCREMENT")}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-700">AUTO INCREMENT</span>
-          </label>
+      {/* Список колонок */}
+      {columns.length === 0 ? (
+        <div className="text-center py-8 bg-gray-50 rounded-lg">
+          <p className="text-gray-500">Нет колонок. Добавьте первую колонку.</p>
         </div>
-      </div>
+      ) : (
+        <div className="space-y-4">
+          {columns.map((column, index) => (
+            <div
+              key={column.id}
+              className="border rounded-lg p-4 space-y-3 bg-white"
+            >
+              {/* Заголовок колонки с кнопками перемещения */}
+              <div className="flex justify-between items-center">
+                <h4 className="font-medium text-gray-900">
+                  Колонка #{index + 1}
+                </h4>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onRemoveColumn(column.id)}
+                    className="text-red-600 hover:text-red-700 text-sm"
+                  >
+                    Удалить
+                  </button>
+                </div>
+              </div>
 
-      {/* Значение по умолчанию */}
-      <Input
-        label="Значение по умолчанию (опционально)"
-        value={column.defaultValue || ""}
-        onChange={(e) =>
-          updateColumn({ defaultValue: e.target.value || undefined })
-        }
-        placeholder="NULL, CURRENT_TIMESTAMP, 0, etc."
-      />
+              {/* Основные свойства колонки */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Имя колонки */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Имя колонки *
+                  </label>
+                  <input
+                    type="text"
+                    value={column.name}
+                    onChange={(e) =>
+                      onUpdateColumn(column.id, { name: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="username"
+                  />
+                </div>
+
+                {/* Тип данных */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Тип данных *
+                  </label>
+                  <select
+                    value={column.type}
+                    onChange={(e) =>
+                      onUpdateColumn(column.id, { type: e.target.value as any })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="INTEGER">INTEGER</option>
+                    <option value="VARCHAR">VARCHAR</option>
+                    <option value="TEXT">TEXT</option>
+                    <option value="BOOLEAN">BOOLEAN</option>
+                    <option value="DATE">DATE</option>
+                    <option value="TIMESTAMP">TIMESTAMP</option>
+                    <option value="DECIMAL">DECIMAL</option>
+                    <option value="FLOAT">FLOAT</option>
+                    <option value="BLOB">BLOB</option>
+                  </select>
+                </div>
+
+                {/* Длина (для VARCHAR) */}
+                {column.type === "VARCHAR" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Длина
+                    </label>
+                    <input
+                      type="number"
+                      value={column.length || 255}
+                      onChange={(e) =>
+                        onUpdateColumn(column.id, {
+                          length: parseInt(e.target.value),
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      min="1"
+                      max="65535"
+                    />
+                  </div>
+                )}
+
+                {/* Значение по умолчанию */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Значение по умолчанию
+                  </label>
+                  <input
+                    type="text"
+                    value={column.defaultValue || ""}
+                    onChange={(e) =>
+                      onUpdateColumn(column.id, {
+                        defaultValue: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="NULL"
+                  />
+                </div>
+              </div>
+
+              {/* Constraints */}
+              <div className="flex flex-wrap gap-4 pt-2">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={hasConstraint(column, "PRIMARY_KEY")}
+                    onChange={(e) => {
+                      handleConstraintChange(
+                        column.id,
+                        "PRIMARY_KEY",
+                        e.target.checked
+                      );
+                    }}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">
+                    Primary Key
+                  </span>
+                </label>
+
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={hasConstraint(column, "NOT_NULL")}
+                    onChange={(e) =>
+                      handleConstraintChange(
+                        column.id,
+                        "NOT_NULL",
+                        e.target.checked
+                      )
+                    }
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Not Null</span>
+                </label>
+
+                {/* <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={hasConstraint(column, "UNIQUE")}
+                    onChange={(e) =>
+                      handleConstraintChange(
+                        column.id,
+                        "UNIQUE",
+                        e.target.checked
+                      )
+                    }
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Unique</span>
+                </label> */}
+
+                {hasConstraint(column, "PRIMARY_KEY") && (
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={hasConstraint(column, "AUTO_INCREMENT")}
+                      onChange={(e) =>
+                        handleConstraintChange(
+                          column.id,
+                          "AUTO_INCREMENT",
+                          e.target.checked
+                        )
+                      }
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">
+                      Auto Increment
+                    </span>
+                  </label>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

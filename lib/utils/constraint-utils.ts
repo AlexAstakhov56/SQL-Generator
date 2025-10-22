@@ -1,4 +1,3 @@
-// lib/utils/constraint-utils.ts
 import { ColumnDefinition, Constraint } from "../types";
 
 export const constraintUtils = {

@@ -17,6 +17,14 @@ export abstract class BaseSQLGenerator {
     data: Record<string, any>[]
   ): string;
 
+  // Добавляем опциональный параметр для доступа к полной схеме БД
+  protected databaseSchema?: TableSchema[];
+
+  // Метод для установки схемы (будет использоваться в MultiTableGenerator)
+  setDatabaseSchema(schema: TableSchema[]): void {
+    this.databaseSchema = schema;
+  }
+
   protected generateColumns(
     columns: ColumnDefinition[],
     dbType: DatabaseType
@@ -71,18 +79,30 @@ export abstract class BaseSQLGenerator {
     tableName: string,
     dbType: DatabaseType
   ): string {
-    const escapedColumns = index.columns
+    // Используем реальные имена колонок из index.columns (это массив ID колонок)
+    const columnNames = index.columns.map((colId) => {
+      if (this.databaseSchema) {
+        // Ищем колонку по ID во всей схеме БД
+        for (const table of this.databaseSchema) {
+          const column = table.columns.find((col) => col.id === colId);
+          if (column) return column.name;
+        }
+      }
+      return colId; // fallback - используем ID если не нашли
+    });
+
+    const escapedColumns = columnNames
       .map((col) => this.escapeName(col, dbType))
       .join(", ");
 
     switch (index.type) {
       case "PRIMARY":
         return `  PRIMARY KEY (${escapedColumns})`;
-      case "UNIQUE":
-        return `  UNIQUE ${this.escapeName(
-          index.name,
-          dbType
-        )} (${escapedColumns})`;
+      // case "UNIQUE":
+      //   return `  UNIQUE ${this.escapeName(
+      //     index.name,
+      //     dbType
+      //   )} (${escapedColumns})`;
       case "INDEX":
         return `  INDEX ${this.escapeName(
           index.name,
@@ -102,9 +122,27 @@ export abstract class BaseSQLGenerator {
     relationship: Relationship,
     dbType: DatabaseType
   ): string {
-    const sourceColumn = this.escapeName(relationship.sourceColumnId, dbType);
-    const targetTable = this.escapeName(relationship.targetTableId, dbType);
-    const targetColumn = this.escapeName(relationship.targetColumnId, dbType);
+    // Получаем реальные имена вместо ID
+    const sourceColumnName = this.getColumnNameById(
+      relationship.sourceColumnId
+    );
+    const targetTableName = this.getTableNameById(relationship.targetTableId);
+    const targetColumnName = this.getColumnNameById(
+      relationship.targetColumnId
+    );
+
+    // Если не нашли реальные имена, пропускаем эту связь
+    if (!sourceColumnName || !targetTableName || !targetColumnName) {
+      console.warn(
+        "Пропускаем foreign key с отсутствующими именами:",
+        relationship
+      );
+      return "";
+    }
+
+    const sourceColumn = this.escapeName(sourceColumnName, dbType);
+    const targetTable = this.escapeName(targetTableName, dbType);
+    const targetColumn = this.escapeName(targetColumnName, dbType);
 
     let sql = `  CONSTRAINT ${this.escapeName(relationship.name, dbType)}`;
     sql += ` FOREIGN KEY (${sourceColumn})`;
@@ -113,5 +151,23 @@ export abstract class BaseSQLGenerator {
     sql += ` ON UPDATE ${relationship.onUpdate}`;
 
     return sql;
+  }
+
+  // Вспомогательные методы для получения реальных имен по ID
+  private getTableNameById(tableId: string): string | undefined {
+    if (!this.databaseSchema) return undefined;
+
+    const table = this.databaseSchema.find((t) => t.id === tableId);
+    return table?.name;
+  }
+
+  private getColumnNameById(columnId: string): string | undefined {
+    if (!this.databaseSchema) return undefined;
+
+    for (const table of this.databaseSchema) {
+      const column = table.columns.find((col) => col.id === columnId);
+      if (column) return column.name;
+    }
+    return undefined;
   }
 }

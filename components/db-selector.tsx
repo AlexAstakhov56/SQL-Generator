@@ -45,7 +45,7 @@ export function DBSelector({
               border-2 rounded-lg p-4 cursor-pointer transition-all bg-white duration-200
               ${
                 selectedDB === db.value
-                  ? "border-violet-600 border-2 shadow-md"
+                  ? "border-violet-600 border-3 shadow-md"
                   : "border-gray-500 hover:border-gray-300 hover:bg-gray-50"
               }
             `}
