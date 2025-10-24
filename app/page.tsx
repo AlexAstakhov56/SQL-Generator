@@ -4,10 +4,10 @@ import { useState, useEffect } from "react";
 import { DatabaseSchema, DatabaseType, TableSchema } from "../lib/types";
 import { MultiTableUtils } from "../lib/utils/multi-table-utils";
 import { MultiTableGenerator } from "../lib/utils/generators/multi-table-generator";
-import { DatabaseSchemaEditor } from "../components/tables/database-schema-editor";
-import { DBSelector } from "../components/db-selector";
-import { SQLPreview } from "../components/constructor/sql-preview";
-import { DatabaseSchemaVisualization } from "@/components/database-schema-visualization";
+import { DBSelector } from "../components/database/db-selector";
+import { SQLPreview } from "../components/database/sql-preview";
+import { DatabaseSchemaEditor } from "@/components/schema/database-schema-editor";
+import { DatabaseSchemaVisualization } from "@/components/schema/database-schema-visualization";
 
 export default function Home() {
   const [selectedDB, setSelectedDB] = useState<DatabaseType>("sqlite");
@@ -190,11 +190,11 @@ export default function Home() {
       <div className="container mx-auto px-4 max-w-7xl">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            🗃️ SQL Конструктор (Многотабличный)
+            🏗️ SQL Конструктор
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Создавайте сложные схемы баз данных с несколькими связанными
-            таблицами
+            Визуальное создание SQL запросов для создания таблиц в MySQL,
+            PostgreSQL и SQLite
           </p>
         </div>
 
@@ -202,28 +202,19 @@ export default function Home() {
           <DBSelector selectedDB={selectedDB} onDBChange={setSelectedDB} />
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-          {/* Основной редактор схемы */}
-          <div className="xl:col-span-2">
-            <DatabaseSchemaEditor
-              schema={databaseSchema}
-              onSchemaChange={setDatabaseSchema}
-              onGenerateSQL={handleGenerateWithValidation}
-              onTestSQL={handleTestWithValidation}
-              isGenerating={isGenerating}
-              isTesting={isTesting}
-            />
-          </div>
-
-          {/* Панель предпросмотра SQL */}
-          <div className="xl:col-span-1">
-            <div className="sticky top-8">
-              <SQLPreview sql={generatedSQL} selectedDB={selectedDB} />
-            </div>
-          </div>
-          <div className="mt-8">
-            <DatabaseSchemaVisualization schema={databaseSchema} />
-          </div>
+        <DatabaseSchemaEditor
+          schema={databaseSchema}
+          onSchemaChange={setDatabaseSchema}
+          onGenerateSQL={handleGenerateWithValidation}
+          onTestSQL={handleTestWithValidation}
+          isGenerating={isGenerating}
+          isTesting={isTesting}
+        />
+        <div className="my-8">
+          <SQLPreview sql={generatedSQL} selectedDB={selectedDB} />
+        </div>
+        <div>
+          <DatabaseSchemaVisualization schema={databaseSchema} />
         </div>
       </div>
     </div>

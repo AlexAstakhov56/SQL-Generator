@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { TableSchema } from "../../lib/types";
 import { TableEditor } from "../forms/table-editor";
+import { Button } from "../ui/button";
 
 interface TableListProps {
   tables: TableSchema[];
@@ -52,14 +53,13 @@ export function TableList({
 
   return (
     <div className="flex gap-6">
-      {/* Список таблиц */}
       <div className="w-64 flex-shrink-0">
-        <div className="bg-white border rounded-lg">
+        <div className="bg-white border-2">
           {tables.map((table) => (
             <div
               key={table.id}
-              className={`p-3 border-b cursor-pointer hover:bg-gray-50 ${
-                selectedTableId === table.id ? "bg-blue-50 border-blue-200" : ""
+              className={`p-3 border cursor-pointer hover:bg-blue-200 transition duration-200 ${
+                selectedTableId === table.id ? "bg-blue-300 " : ""
               }`}
               onClick={() => !editingTableId && setSelectedTableId(table.id)}
             >
@@ -94,7 +94,7 @@ export function TableList({
               ) : (
                 <div>
                   <div className="flex justify-between items-start">
-                    <div className="font-medium text-gray-900">
+                    <div className="font-medium text-lg text-gray-900">
                       {table.name}
                     </div>
                     <button
@@ -102,16 +102,16 @@ export function TableList({
                         e.stopPropagation();
                         startEditing(table);
                       }}
-                      className="text-gray-400 hover:text-gray-600 text-xs"
+                      className="text-gray-400 cursor-pointer hover:text-gray-600 text-xs"
                     >
                       ✏️
                     </button>
                   </div>
-                  <div className="text-sm text-gray-500">
-                    {table.columns.length} колонок
+                  <div className="text-sm text-gray-600">
+                    Колонок: {table.columns.length}
                   </div>
-                  <div className="text-xs text-gray-400">
-                    {table.relationships.length} связей
+                  <div className="text-sm text-gray-500">
+                    Связей: {table.relationships.length}
                   </div>
                 </div>
               )}
@@ -120,20 +120,25 @@ export function TableList({
         </div>
       </div>
 
-      {/* Редактор выбранной таблицы */}
       <div className="flex-1">
         {selectedTable && (
-          <div className="bg-white border rounded-lg p-6">
+          <div className="bg-violet-300 border rounded-lg p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">
+              <h3 className="text-2xl font-bold">
                 Редактирование: {selectedTable.name}
               </h3>
-              <button
+              <Button
+                variant="danger"
                 onClick={() => onTableDelete(selectedTable.id)}
-                className="text-red-600 hover:text-red-700 text-sm"
               >
                 Удалить таблицу
-              </button>
+              </Button>
+              {/* <button
+                onClick={() => onTableDelete(selectedTable.id)}
+                className="text-red-500 transition duration-200 cursor-pointer hover:text-red-600 text-md"
+              >
+                Удалить таблицу
+              </button> */}
             </div>
 
             <TableEditor

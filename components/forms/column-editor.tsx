@@ -77,15 +77,13 @@ export function ColumnEditor({
 
   return (
     <div className="space-y-4">
-      {/* Заголовок и кнопка добавления */}
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium text-gray-900">Колонки таблицы</h3>
-        <Button onClick={onAddColumn} variant="secondary">
+        <Button onClick={onAddColumn} variant="warning">
           + Добавить колонку
         </Button>
       </div>
 
-      {/* Список колонок */}
       {columns.length === 0 ? (
         <div className="text-center py-8 bg-gray-50 rounded-lg">
           <p className="text-gray-500">Нет колонок. Добавьте первую колонку.</p>
@@ -97,27 +95,24 @@ export function ColumnEditor({
               key={column.id}
               className="border rounded-lg p-4 space-y-3 bg-white"
             >
-              {/* Заголовок колонки с кнопками перемещения */}
               <div className="flex justify-between items-center">
-                <h4 className="font-medium text-gray-900">
+                <h4 className="font-semibold text-gray-900 text-xl">
                   Колонка #{index + 1}
                 </h4>
                 <div className="flex gap-2">
                   <button
                     onClick={() => onRemoveColumn(column.id)}
-                    className="text-red-600 hover:text-red-700 text-sm"
+                    className="text-red-500 transition duration-200 cursor-pointer hover:text-red-600 text-md"
                   >
                     Удалить
                   </button>
                 </div>
               </div>
 
-              {/* Основные свойства колонки */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Имя колонки */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Имя колонки *
+                  <label className="block text-md font-semibold text-gray-700 mb-1">
+                    Имя колонки <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -125,22 +120,21 @@ export function ColumnEditor({
                     onChange={(e) =>
                       onUpdateColumn(column.id, { name: e.target.value })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-lg border border-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="username"
                   />
                 </div>
 
-                {/* Тип данных */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Тип данных *
+                  <label className="block text-md font-semibold text-gray-700 mb-1">
+                    Тип данных <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={column.type}
                     onChange={(e) =>
                       onUpdateColumn(column.id, { type: e.target.value as any })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-lg border border-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="INTEGER">INTEGER</option>
                     <option value="VARCHAR">VARCHAR</option>
@@ -154,10 +148,9 @@ export function ColumnEditor({
                   </select>
                 </div>
 
-                {/* Длина (для VARCHAR) */}
                 {column.type === "VARCHAR" && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-md font-semibold text-gray-700 mb-1">
                       Длина
                     </label>
                     <input
@@ -168,16 +161,15 @@ export function ColumnEditor({
                           length: parseInt(e.target.value),
                         })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-lg border border-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       min="1"
                       max="65535"
                     />
                   </div>
                 )}
 
-                {/* Значение по умолчанию */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-md font-semibold text-gray-700 mb-1">
                     Значение по умолчанию
                   </label>
                   <input
@@ -188,13 +180,12 @@ export function ColumnEditor({
                         defaultValue: e.target.value,
                       })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border text-lg border-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="NULL"
                   />
                 </div>
               </div>
 
-              {/* Constraints */}
               <div className="flex flex-wrap gap-4 pt-2">
                 <label className="flex items-center">
                   <input
@@ -207,9 +198,9 @@ export function ColumnEditor({
                         e.target.checked
                       );
                     }}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="accent-green-600 w-5 h-5 cursor-pointer transition duration-200"
                   />
-                  <span className="ml-2 text-sm text-gray-700">
+                  <span className="ml-2 text-md text-gray-700">
                     Primary Key
                   </span>
                 </label>
@@ -225,9 +216,9 @@ export function ColumnEditor({
                         e.target.checked
                       )
                     }
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="accent-green-600 w-5 h-5 cursor-pointer transition duration-200"
                   />
-                  <span className="ml-2 text-sm text-gray-700">Not Null</span>
+                  <span className="ml-2 text-md text-gray-700">Not Null</span>
                 </label>
 
                 {/* <label className="flex items-center">
@@ -258,9 +249,9 @@ export function ColumnEditor({
                           e.target.checked
                         )
                       }
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="accent-green-600 w-5 h-5 cursor-pointer transition duration-200"
                     />
-                    <span className="ml-2 text-sm text-gray-700">
+                    <span className="ml-2 text-md text-gray-700">
                       Auto Increment
                     </span>
                   </label>

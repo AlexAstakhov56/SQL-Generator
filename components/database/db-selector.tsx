@@ -35,7 +35,7 @@ export function DBSelector({
 
   return (
     <div className={`space-y-4 ${className}`}>
-      <h3 className="text-lg text-center font-semibold">🎯 Выбор СУБД</h3>
+      <h3 className="text-xl text-center font-semibold">🎯 Выбор СУБД</h3>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {databases.map((db) => (
@@ -55,21 +55,12 @@ export function DBSelector({
             <div className="text-sm text-gray-600 mt-1">{db.description}</div>
 
             {selectedDB === db.value && (
-              <div className="mt-2 text-xs text-violet-600 font-medium">
+              <div className="mt-2 text-sm text-violet-600 font-medium">
                 ✓ Выбрано
               </div>
             )}
           </div>
         ))}
-      </div>
-
-      <div className="text-sm text-center text-gray-500">
-        {selectedDB === "mysql" &&
-          "Оптимизированный синтаксис MySQL с поддержкой ENGINE, CHARSET"}
-        {selectedDB === "postgresql" &&
-          "Современный синтаксис PostgreSQL с поддержкой схем и расширенных типов"}
-        {selectedDB === "sqlite" &&
-          "Упрощенный синтаксис SQLite - быстрое тестирование прямо в браузере"}
       </div>
     </div>
   );

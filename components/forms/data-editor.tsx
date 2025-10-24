@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { TableSchema, ColumnDefinition } from "../../lib/types";
 import { DataCell } from "./data-cell";
+import { Button } from "../ui/button";
 
 interface DataEditorProps {
   table: TableSchema;
@@ -17,9 +18,7 @@ interface ValidationError {
 }
 
 export function DataEditor({ table, onDataChange }: DataEditorProps) {
-  const [tableData, setTableData] = useState<Record<string, any>[]>(
-    table.data || [createEmptyRow(table.columns, 1)]
-  );
+  const [tableData, setTableData] = useState<Record<string, any>[]>([]);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
     []
   );
@@ -31,7 +30,12 @@ export function DataEditor({ table, onDataChange }: DataEditorProps) {
       column.constraints?.includes("AUTO_INCREMENT")
   );
 
-  // Валидация данных при изменении
+  useEffect(() => {
+    if (table.data && table.data.length > 0) {
+      setTableData(table.data);
+    }
+  }, [table.data]);
+
   useEffect(() => {
     validateAllData();
   }, [tableData]);
@@ -63,9 +67,6 @@ export function DataEditor({ table, onDataChange }: DataEditorProps) {
             message: `Поле "${column.name}" не может быть пустым`,
           });
         }
-
-        // Дополнительные проверки можно добавить здесь
-        // (типы данных, уникальность, и т.д.)
       });
     });
 
@@ -73,14 +74,12 @@ export function DataEditor({ table, onDataChange }: DataEditorProps) {
     return errors.length === 0;
   };
 
-  // Проверка валидности конкретной ячейки
   const isCellValid = (rowIndex: number, columnName: string): boolean => {
     return !validationErrors.some(
       (error) => error.rowIndex === rowIndex && error.columnName === columnName
     );
   };
 
-  // Получение сообщения об ошибке для ячейки
   const getCellError = (
     rowIndex: number,
     columnName: string
@@ -91,7 +90,6 @@ export function DataEditor({ table, onDataChange }: DataEditorProps) {
     return error ? error.message : null;
   };
 
-  // Создание пустой строки с автоматической генерацией ID
   function createEmptyRow(
     columns: ColumnDefinition[],
     nextId: number
@@ -161,7 +159,6 @@ export function DataEditor({ table, onDataChange }: DataEditorProps) {
     return row;
   }
 
-  // Получаем следующий ID для AUTO_INCREMENT
   const getNextAutoIncrementId = (): number => {
     if (!autoIncrementPkColumn) return 1;
 
@@ -174,7 +171,6 @@ export function DataEditor({ table, onDataChange }: DataEditorProps) {
     return existingIds.length > 0 ? Math.max(...existingIds) + 1 : 1;
   };
 
-  // Добавление новой строки
   const addRow = () => {
     const nextId = getNextAutoIncrementId();
     const newData = [...tableData, createEmptyRow(table.columns, nextId)];
@@ -182,14 +178,12 @@ export function DataEditor({ table, onDataChange }: DataEditorProps) {
     onDataChange(newData);
   };
 
-  // Удаление строки
   const removeRow = (index: number) => {
     const newData = tableData.filter((_, i) => i !== index);
     setTableData(newData);
     onDataChange(newData);
   };
 
-  // Обновление значения в строке
   const updateCell = (rowIndex: number, columnName: string, value: any) => {
     // Запрещаем редактирование AUTO_INCREMENT PRIMARY KEY
     const column = table.columns.find((c) => c.name === columnName);
@@ -253,7 +247,6 @@ export function DataEditor({ table, onDataChange }: DataEditorProps) {
     )})\nVALUES ${values};`;
   };
 
-  // Форматирование значения для SQL
   const formatValueForSQL = (value: any, columnType?: string): string => {
     if (value === null || value === undefined || value === "") {
       return "NULL";
@@ -286,13 +279,12 @@ export function DataEditor({ table, onDataChange }: DataEditorProps) {
 
   return (
     <div className="space-y-6">
-      {/* Заголовок и кнопки */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-lg font-medium text-gray-900">
+          <h3 className="text-xl font-medium text-gray-900">
             Данные для вставки
           </h3>
-          <p className="text-sm text-gray-600">
+          <p className="text-md text-gray-600">
             Добавьте тестовые данные для генерации INSERT запросов
             {autoIncrementPkColumn && (
               <span className="text-blue-600 ml-2">
@@ -307,16 +299,12 @@ export function DataEditor({ table, onDataChange }: DataEditorProps) {
               {validationErrors.length} ошибок валидации
             </div>
           )}
-          <button
-            onClick={addRow}
-            className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600"
-          >
+          <Button onClick={addRow} variant="success">
             + Добавить строку
-          </button>
+          </Button>
         </div>
       </div>
 
-      {/* Таблица данных */}
       {tableData.length === 0 ? (
         <div className="text-center py-8 bg-gray-50 rounded-lg">
           <p className="text-gray-500">Нет данных для отображения</p>
@@ -332,34 +320,34 @@ export function DataEditor({ table, onDataChange }: DataEditorProps) {
           <table className="min-w-full bg-white border rounded-lg">
             <thead>
               <tr className="bg-gray-50">
-                <th className="px-4 py-2 border-b text-left text-sm font-medium text-gray-700">
+                <th className="px-4 py-2 border-b text-left text-md font-medium text-gray-700">
                   #
                 </th>
                 {table.columns.map((column) => (
                   <th
                     key={column.id}
-                    className="px-4 py-2 border-b text-left text-sm font-medium text-gray-700"
+                    className="px-5 py-2 border-b text-left text-md font-medium text-gray-700"
                   >
                     <div>
                       <div className="font-medium flex items-center gap-1">
                         {column.name}
                         {column.constraints?.includes("PRIMARY_KEY") && (
-                          <span className="text-xs bg-yellow-100 text-yellow-800 px-1 rounded">
+                          <span className="text-sm bg-yellow-100 text-yellow-800 px-1 rounded">
                             PK
                           </span>
                         )}
                         {column.constraints?.includes("AUTO_INCREMENT") && (
-                          <span className="text-xs bg-blue-100 text-blue-800 px-1 rounded">
+                          <span className="text-sm bg-blue-100 text-blue-800 px-1 rounded">
                             AI
                           </span>
                         )}
                         {column.constraints?.includes("NOT_NULL") && (
-                          <span className="text-xs bg-red-100 text-red-800 px-1 rounded">
+                          <span className="text-sm bg-red-100 text-red-800 px-1 rounded">
                             NN
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500">{column.type}</div>
+                      <div className="text-sm text-gray-500">{column.type}</div>
                     </div>
                   </th>
                 ))}
@@ -409,7 +397,7 @@ export function DataEditor({ table, onDataChange }: DataEditorProps) {
                   <td className="px-4 py-2 border-b">
                     <button
                       onClick={() => removeRow(rowIndex)}
-                      className="text-red-500 hover:text-red-700 text-sm"
+                      className="text-red-500 hover:text-red-600 cursor-pointer text-md"
                     >
                       Удалить
                     </button>
@@ -421,25 +409,24 @@ export function DataEditor({ table, onDataChange }: DataEditorProps) {
         </div>
       )}
 
-      {/* Генерация SQL (только если все данные валидны) */}
       {isValid && insertSQL && (
         <div className="bg-gray-900 rounded-lg p-4">
           <div className="flex justify-between items-center mb-2">
-            <h4 className="text-sm font-medium text-gray-300">
+            <h4 className="text-md font-medium text-gray-300">
               INSERT запросы
             </h4>
             <button
               onClick={() => navigator.clipboard.writeText(insertSQL)}
-              className="text-xs text-gray-400 hover:text-white bg-gray-800 px-2 py-1 rounded"
+              className="text-md cursor-pointer text-gray-400 hover:text-white bg-gray-800 px-2 py-1 rounded"
             >
               📋 Копировать
             </button>
           </div>
-          <pre className="text-green-400 font-mono text-sm whitespace-pre-wrap overflow-x-auto">
+          <pre className="text-green-400 font-mono text-md whitespace-pre-wrap overflow-x-auto">
             {insertSQL}
           </pre>
-          <div className="text-xs text-gray-500 mt-2">
-            Сгенерировано {tableData.length} запросов
+          <div className="text-sm text-gray-500 mt-2">
+            Сгенерировано запросов: {tableData.length}
             {autoIncrementPkColumn && " (AUTO_INCREMENT поля исключены)"}
           </div>
         </div>

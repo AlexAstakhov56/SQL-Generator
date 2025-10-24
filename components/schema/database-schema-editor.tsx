@@ -10,7 +10,7 @@ interface DatabaseSchemaEditorProps {
   schema: DatabaseSchema;
   onSchemaChange: (schema: DatabaseSchema) => void;
   onGenerateSQL: (schema: DatabaseSchema) => void;
-  onTestSQL?: (schema: DatabaseSchema) => void;
+  onTestSQL: (schema: DatabaseSchema) => void;
   isGenerating?: boolean;
   isTesting?: boolean;
 }
@@ -19,6 +19,8 @@ export function DatabaseSchemaEditor({
   schema,
   onSchemaChange,
   onGenerateSQL,
+  isTesting,
+  onTestSQL,
 }: DatabaseSchemaEditorProps) {
   const [activeTab, setActiveTab] = useState<"tables" | "relationships">(
     "tables"
@@ -79,28 +81,42 @@ export function DatabaseSchemaEditor({
           </p>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
           <button
             onClick={addTable}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+            className="bg-yellow-400 transition duration-200 cursor-pointer text-white px-4 py-2 rounded-lg hover:bg-yellow-500"
           >
             + Добавить таблицу
           </button>
           <button
             onClick={() => onGenerateSQL(schema)}
-            className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
+            className="bg-green-500 transition duration-200 cursor-pointer text-white px-4 py-2 rounded-lg hover:bg-green-600"
             disabled={schema.tables.length === 0}
           >
             🚀 Сгенерировать SQL
           </button>
+          <button
+            onClick={() => onTestSQL(schema)}
+            className="bg-red-500 transition duration-200 cursor-pointer text-white px-4 py-2 rounded-lg hover:bg-red-600"
+            disabled={schema.tables.length === 0}
+          >
+            {isTesting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                Тестирование...
+              </>
+            ) : (
+              <>🧪 Протестировать</>
+            )}
+          </button>
         </div>
       </div>
 
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-300">
         <nav className="flex space-x-8">
           <button
             onClick={() => setActiveTab("tables")}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-1 cursor-pointer border-b-2 font-medium text-sm ${
               activeTab === "tables"
                 ? "border-blue-500 text-blue-600"
                 : "border-transparent text-gray-500 hover:text-gray-700"
@@ -110,7 +126,7 @@ export function DatabaseSchemaEditor({
           </button>
           <button
             onClick={() => setActiveTab("relationships")}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-1 cursor-pointer border-b-2 font-medium text-sm ${
               activeTab === "relationships"
                 ? "border-blue-500 text-blue-600"
                 : "border-transparent text-gray-500 hover:text-gray-700"

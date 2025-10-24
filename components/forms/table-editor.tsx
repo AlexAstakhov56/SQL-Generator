@@ -62,47 +62,46 @@ export function TableEditor({ table, onTableChange }: TableEditorProps) {
   };
 
   // Работа с индексами
-  const addIndex = () => {
-    const newIndex: IndexDefinition = {
-      id: `index_${Date.now()}`,
-      name: `idx_${table.name}_${table.indexes.length + 1}`,
-      type: "BTREE",
-      columns: [],
-      unique: false,
-      dbSpecific: {
-        mysql: {},
-        postgresql: {},
-        sqlite: {},
-      },
-    };
-    const updatedIndexes = [...table.indexes, newIndex];
-    onTableChange({ indexes: updatedIndexes });
-  };
+  // const addIndex = () => {
+  //   const newIndex: IndexDefinition = {
+  //     id: `index_${Date.now()}`,
+  //     name: `idx_${table.name}_${table.indexes.length + 1}`,
+  //     type: "BTREE",
+  //     columns: [],
+  //     unique: false,
+  //     dbSpecific: {
+  //       mysql: {},
+  //       postgresql: {},
+  //       sqlite: {},
+  //     },
+  //   };
+  //   const updatedIndexes = [...table.indexes, newIndex];
+  //   onTableChange({ indexes: updatedIndexes });
+  // };
 
-  const updateIndex = (indexId: string, updates: any) => {
-    const updatedIndexes = table.indexes.map((index) =>
-      index.id === indexId ? { ...index, ...updates } : index
-    );
-    onTableChange({ indexes: updatedIndexes });
-  };
+  // const updateIndex = (indexId: string, updates: any) => {
+  //   const updatedIndexes = table.indexes.map((index) =>
+  //     index.id === indexId ? { ...index, ...updates } : index
+  //   );
+  //   onTableChange({ indexes: updatedIndexes });
+  // };
 
-  const removeIndex = (indexId: string) => {
-    const updatedIndexes = table.indexes.filter(
-      (index) => index.id !== indexId
-    );
-    onTableChange({ indexes: updatedIndexes });
-  };
+  // const removeIndex = (indexId: string) => {
+  //   const updatedIndexes = table.indexes.filter(
+  //     (index) => index.id !== indexId
+  //   );
+  //   onTableChange({ indexes: updatedIndexes });
+  // };
 
   return (
     <div className="space-y-6">
-      {/* Вкладки */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-600">
         <nav className="flex space-x-8">
           <button
             onClick={() => setActiveTab("columns")}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-1 cursor-pointer border-b-2 font-semibold text-md ${
               activeTab === "columns"
-                ? "border-blue-500 text-blue-600"
+                ? "border-red-600 text-red-600"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
@@ -110,9 +109,9 @@ export function TableEditor({ table, onTableChange }: TableEditorProps) {
           </button>
           <button
             onClick={() => setActiveTab("data")}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-1 cursor-pointer border-b-2 font-semibold text-md ${
               activeTab === "data"
-                ? "border-blue-500 text-blue-600"
+                ? "border-red-600 text-red-600"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >

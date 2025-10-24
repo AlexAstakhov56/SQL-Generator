@@ -2,6 +2,7 @@
 
 import { TableSchema } from "@/lib/types";
 import { useEffect } from "react";
+import { Button } from "../ui/button";
 
 interface TableDataModalProps {
   table: TableSchema;
@@ -30,25 +31,23 @@ export function TableDataModal({ table, onClose }: TableDataModalProps) {
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
-        {/* Заголовок модального окна */}
         <div className="flex justify-between items-center p-6 border-b">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">
+            <h2 className="text-2xl font-bold text-gray-900">
               Данные таблицы: {table.name}
             </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              {table.columns.length} колонок, {data.length} строк
+            <p className="text-lg text-gray-600 mt-1">
+              Колонок: {table.columns.length}, Строк: {data.length}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl"
+            className="text-gray-400 hover:text-gray-600 cursor-pointer text-4xl"
           >
             ×
           </button>
         </div>
 
-        {/* Содержимое модального окна */}
         <div className="p-6 overflow-auto max-h-[calc(90vh-120px)]">
           {data.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 rounded-lg">
@@ -79,23 +78,23 @@ export function TableDataModal({ table, onClose }: TableDataModalProps) {
               <table className="min-w-full bg-white">
                 <thead>
                   <tr className="bg-gray-50 border-b">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-md font-medium text-gray-500 uppercase tracking-wider">
                       #
                     </th>
                     {table.columns.map((column) => (
                       <th
                         key={column.id}
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        className="px-4 py-3 text-left text-md font-medium text-gray-700 uppercase tracking-wider"
                       >
                         <div className="flex items-center gap-2">
                           <span>{column.name}</span>
                           {column.constraints.includes("PRIMARY_KEY") && (
-                            <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">
+                            <span className="text-sm bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">
                               PK
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-gray-400 mt-1">
+                        <div className="text-sm text-gray-400 mt-1">
                           {column.type}
                         </div>
                       </th>
@@ -105,13 +104,13 @@ export function TableDataModal({ table, onClose }: TableDataModalProps) {
                 <tbody className="divide-y divide-gray-200">
                   {data.map((row, rowIndex) => (
                     <tr key={rowIndex} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-500 font-medium">
+                      <td className="px-4 py-3 text-md text-gray-500 font-medium">
                         {rowIndex + 1}
                       </td>
                       {table.columns.map((column) => (
                         <td
                           key={column.id}
-                          className="px-4 py-3 text-sm text-gray-900"
+                          className="px-4 py-3 text-md text-gray-900"
                         >
                           <div className="max-w-xs truncate">
                             {formatCellValue(row[column.name], column.type)}
@@ -126,24 +125,19 @@ export function TableDataModal({ table, onClose }: TableDataModalProps) {
           )}
         </div>
 
-        {/* Футер модального окна */}
         <div className="flex justify-between items-center p-4 border-t bg-gray-50">
-          <div className="text-sm text-gray-600">
-            Показано {data.length} строк
+          <div className="text-md text-gray-600">
+            Показано строк: {data.length}
           </div>
-          <button
-            onClick={onClose}
-            className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600"
-          >
+          <Button onClick={onClose} variant="primary">
             Закрыть
-          </button>
+          </Button>
         </div>
       </div>
     </div>
   );
 }
 
-// Функция для форматирования значений ячеек
 function formatCellValue(value: any, columnType: string): string {
   if (value === null || value === undefined || value === "") {
     return "NULL";

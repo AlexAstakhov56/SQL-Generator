@@ -125,17 +125,16 @@ export function RelationshipBuilder({
 
   return (
     <div className="space-y-6">
-      {/* Форма создания новой связи */}
       <div className="bg-white border rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
+        <h3 className="text-xl font-medium text-gray-900 mb-4">
           Создать новую связь
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          {/* Исходная таблица */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Исходная таблица (с Foreign Key) *
+            <label className="block text-md font-medium text-gray-700 mb-1">
+              Исходная таблица (с Foreign Key){" "}
+              <span className="text-red-500">*</span>
             </label>
             <select
               value={newRelationship.sourceTableId || ""}
@@ -146,7 +145,7 @@ export function RelationshipBuilder({
                   sourceColumnId: "", // Сбрасываем выбор колонки
                 }))
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full text-lg px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Выберите таблицу</option>
               {schema.tables.map((table) => (
@@ -157,10 +156,9 @@ export function RelationshipBuilder({
             </select>
           </div>
 
-          {/* Исходная колонка */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Исходная колонка *
+            <label className="block text-md font-medium text-gray-700 mb-1">
+              Исходная колонка <span className="text-red-500">*</span>
             </label>
             <select
               value={newRelationship.sourceColumnId || ""}
@@ -171,7 +169,7 @@ export function RelationshipBuilder({
                 }))
               }
               disabled={!newRelationship.sourceTableId}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+              className="w-full px-3 py-2 text-lg border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
             >
               <option value="">Выберите колонку</option>
               {newRelationship.sourceTableId &&
@@ -185,10 +183,10 @@ export function RelationshipBuilder({
             </select>
           </div>
 
-          {/* Целевая таблица */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Целевая таблица (с Primary Key) *
+            <label className="block text-md font-medium text-gray-700 mb-1">
+              Целевая таблица (с Primary Key){" "}
+              <span className="text-red-500">*</span>
             </label>
             <select
               value={newRelationship.targetTableId || ""}
@@ -199,7 +197,7 @@ export function RelationshipBuilder({
                   targetColumnId: "", // Сбрасываем выбор колонки
                 }))
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-lg border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Выберите таблицу</option>
               {schema.tables
@@ -212,10 +210,9 @@ export function RelationshipBuilder({
             </select>
           </div>
 
-          {/* Целевая колонка */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Целевая колонка *
+            <label className="block text-md font-medium text-gray-700 mb-1">
+              Целевая колонка <span className="text-red-500">*</span>
             </label>
             <select
               value={newRelationship.targetColumnId || ""}
@@ -226,7 +223,7 @@ export function RelationshipBuilder({
                 }))
               }
               disabled={!newRelationship.targetTableId}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+              className="w-full px-3 py-2 text-lg border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
             >
               <option value="">Выберите колонку</option>
               {newRelationship.targetTableId &&
@@ -242,9 +239,8 @@ export function RelationshipBuilder({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-          {/* Название связи */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-md font-medium text-gray-700 mb-1">
               Название связи
             </label>
             <input
@@ -256,14 +252,13 @@ export function RelationshipBuilder({
                   name: e.target.value,
                 }))
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-lg border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="fk_users_posts"
             />
           </div>
 
-          {/* Тип связи */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-md font-medium text-gray-700 mb-1">
               Тип связи
             </label>
             <select
@@ -274,7 +269,7 @@ export function RelationshipBuilder({
                   type: e.target.value as any,
                 }))
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-lg border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="ONE_TO_ONE">One-to-One</option>
               <option value="ONE_TO_MANY">One-to-Many</option>
@@ -282,9 +277,8 @@ export function RelationshipBuilder({
             </select>
           </div>
 
-          {/* ON DELETE */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-md font-medium text-gray-700 mb-1">
               ON DELETE
             </label>
             <select
@@ -295,7 +289,7 @@ export function RelationshipBuilder({
                   onDelete: e.target.value as any,
                 }))
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-lg border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="RESTRICT">RESTRICT</option>
               <option value="CASCADE">CASCADE</option>
@@ -304,9 +298,8 @@ export function RelationshipBuilder({
             </select>
           </div>
 
-          {/* ON UPDATE */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-md font-medium text-gray-700 mb-1">
               ON UPDATE
             </label>
             <select
@@ -317,7 +310,7 @@ export function RelationshipBuilder({
                   onUpdate: e.target.value as any,
                 }))
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 text-lg border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="RESTRICT">RESTRICT</option>
               <option value="CASCADE">CASCADE</option>
@@ -335,15 +328,14 @@ export function RelationshipBuilder({
             !newRelationship.targetTableId ||
             !newRelationship.targetColumnId
           }
-          className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          className="bg-violet-500 cursor-pointer transition duration-200 text-white px-4 py-2 rounded-md hover:bg-violet-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
         >
           Создать связь
         </button>
       </div>
 
-      {/* Список существующих связей */}
       <div className="bg-white border rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
+        <h3 className="text-xl font-medium text-gray-900 mb-4">
           Существующие связи ({relationships.length})
         </h3>
 
@@ -374,10 +366,10 @@ export function RelationshipBuilder({
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-4 mb-2">
-                      <span className="font-medium text-gray-900">
+                      <span className="font-medium text-lg text-gray-900">
                         {relationship.name}
                       </span>
-                      <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                      <span className="text-md bg-blue-100 text-blue-800 px-2 py-1 rounded">
                         {relationship.type === "ONE_TO_ONE"
                           ? "1:1"
                           : relationship.type === "ONE_TO_MANY"
@@ -386,7 +378,7 @@ export function RelationshipBuilder({
                       </span>
                     </div>
 
-                    <div className="text-sm text-gray-600">
+                    <div className="text-md text-gray-600">
                       <span className="font-medium">
                         {sourceTable?.name}.{sourceColumn?.name}
                       </span>
@@ -396,7 +388,7 @@ export function RelationshipBuilder({
                       </span>
                     </div>
 
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="text-md text-gray-500 mt-1">
                       ON DELETE: {relationship.onDelete} | ON UPDATE:{" "}
                       {relationship.onUpdate}
                     </div>
@@ -404,7 +396,7 @@ export function RelationshipBuilder({
 
                   <button
                     onClick={() => handleDeleteRelationship(relationship.id)}
-                    className="text-red-600 hover:text-red-700 text-sm ml-4"
+                    className="text-red-500 cursor-pointer hover:text-red-600 text-md ml-4"
                   >
                     Удалить
                   </button>

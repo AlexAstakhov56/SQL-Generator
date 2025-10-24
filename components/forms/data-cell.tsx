@@ -1,6 +1,5 @@
 import { ColumnDefinition } from "@/lib/types";
 
-// Компонент для ячейки данных с правильным input типом
 interface DataCellProps {
   value: any;
   column: ColumnDefinition;
@@ -48,7 +47,7 @@ export function DataCell({
 
   if (disabled) {
     return (
-      <div className="px-2 py-1 bg-gray-100 text-gray-500 rounded text-sm border border-gray-200">
+      <div className="px-2 py-2 bg-gray-100 text-gray-500 rounded text-md border border-gray-200">
         {value || "auto"}
       </div>
     );
@@ -78,7 +77,7 @@ export function DataCell({
         value={value || ""}
         onChange={handleChange}
         disabled={disabled}
-        className={`w-full px-2 py-1 border rounded text-sm focus:outline-none focus:ring-1 ${
+        className={`w-full px-2 py-2 text-md border rounded focus:outline-none focus:ring-2 ${
           disabled
             ? "bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed"
             : !isValid
