@@ -8,6 +8,12 @@ export interface QueryResult {
   columns?: string[];
   error?: string;
   sqlState?: string;
+  meta?: {
+    version?: string;
+    affectedRows?: number;
+    rowCount?: number;
+    [key: string]: any;
+  };
 }
 
 // Результат тестирования для одной СУБД

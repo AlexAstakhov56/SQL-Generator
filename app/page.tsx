@@ -211,7 +211,7 @@ export default function Home() {
           isTesting={isTesting}
         />
         <div className="my-8">
-          <SQLPreview sql={generatedSQL} selectedDB={selectedDB} />
+          <SQLPreview sql={generatedSQL} dbType={selectedDB} />
         </div>
         <div>
           <DatabaseSchemaVisualization schema={databaseSchema} />

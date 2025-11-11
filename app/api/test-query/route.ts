@@ -1,32 +1,31 @@
-"use server";
 import { NextRequest, NextResponse } from "next/server";
-import { SelectedDBService } from "../../../lib/services/selected-db-service";
-import { DatabaseType } from "@/lib/types";
+import { QueryTester } from "@/lib/utils/testing/query-tester";
 
 export async function POST(request: NextRequest) {
   try {
-    const { query, dbType }: { query: string; dbType: DatabaseType } =
-      await request.json();
+    const { sql, dbType } = await request.json();
 
-    if (!query || !dbType) {
+    if (!sql) {
       return NextResponse.json(
-        { success: false, error: "Необходимы query и dbType" },
+        { error: "SQL query is required" },
         { status: 400 }
       );
     }
 
-    const dbService = await SelectedDBService.createForServer();
-    const results = await dbService.testQuery(query, dbType);
+    let results;
 
-    return NextResponse.json({
-      success: true,
-      data: results,
-    });
+    if (dbType) {
+      const result = await QueryTester.testQuery(sql, dbType);
+      results = [result];
+    } else {
+      return NextResponse.json(
+        { error: "Either dbType or testAll must be specified" },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({ results });
   } catch (error: any) {
-    console.error("API Error:", error);
-    return NextResponse.json(
-      { success: false, error: error.message || "Внутренняя ошибка сервера" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

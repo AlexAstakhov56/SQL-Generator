@@ -5,6 +5,7 @@ import {
   DockerConfig,
   QueryResult,
 } from "../types";
+import { ConnectionChecker } from "./testing/connection-checker";
 
 if (typeof window !== "undefined") {
   throw new Error("DockerManager can only be used on the server side");
@@ -351,44 +352,332 @@ export class DockerManager {
   }
 
   /**
-   * Ожидание готовности БД в контейнере
+   * Запуск отдельного контейнера
    */
-  private async waitForDBReady(
+  async startContainer(dbType: "mysql" | "postgresql"): Promise<boolean> {
+    try {
+      const { exec } = await import("child_process");
+      const { promisify } = await import("util");
+      const execAsync = promisify(exec);
+
+      const composeFile =
+        dbType === "mysql"
+          ? "docker-compose.mysql.yml"
+          : "docker-compose.postgresql.yml";
+
+      await execAsync(`docker-compose -f docker/${composeFile} up -d`);
+
+      console.log(`${dbType} container started`);
+      return true;
+    } catch (error) {
+      console.error(`Failed to start ${dbType}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Остановка отдельного контейнера
+   */
+  async stopContainer(dbType: "mysql" | "postgresql"): Promise<boolean> {
+    try {
+      const { exec } = await import("child_process");
+      const { promisify } = await import("util");
+      const execAsync = promisify(exec);
+
+      const composeFile =
+        dbType === "mysql"
+          ? "docker-compose.mysql.yml"
+          : "docker-compose.postgresql.yml";
+
+      await execAsync(`docker-compose -f docker/${composeFile} down`);
+
+      console.log(`${dbType} container stopped`);
+      return true;
+    } catch (error) {
+      console.error(`Failed to stop ${dbType}:`, error);
+      return false;
+    }
+  }
+
+  async startFixedContainers(): Promise<{
+    mysql: boolean;
+    postgresql: boolean;
+  }> {
+    try {
+      // Проверяем, запущен ли уже Docker
+      const isDockerRunning = await this.isDockerRunning();
+      if (!isDockerRunning) {
+        throw new Error("Docker daemon is not running");
+      }
+
+      const results = {
+        mysql: false,
+        postgresql: false,
+      };
+
+      // Запускаем MySQL через docker-compose
+      try {
+        const { exec } = await import("child_process");
+        const { promisify } = await import("util");
+        const execAsync = promisify(exec);
+
+        await execAsync(
+          "docker-compose -f docker/docker-compose.mysql.yml up -d"
+        );
+        results.mysql = true;
+        console.log("MySQL container started");
+      } catch (error) {
+        console.error("Failed to start MySQL:", error);
+      }
+
+      // Запускаем PostgreSQL через docker-compose
+      try {
+        const { exec } = await import("child_process");
+        const { promisify } = await import("util");
+        const execAsync = promisify(exec);
+
+        await execAsync(
+          "docker-compose -f docker/docker-compose.postgresql.yml up -d"
+        );
+        results.postgresql = true;
+        console.log("PostgreSQL container started");
+      } catch (error) {
+        console.error("Failed to start PostgreSQL:", error);
+      }
+
+      return results;
+    } catch (error) {
+      console.error("Error starting fixed containers:", error);
+      return { mysql: false, postgresql: false };
+    }
+  }
+
+  /**
+   * Остановка фиксированных контейнеров
+   */
+  async stopFixedContainers(): Promise<{
+    mysql: boolean;
+    postgresql: boolean;
+  }> {
+    try {
+      const results = {
+        mysql: false,
+        postgresql: false,
+      };
+
+      // Останавливаем MySQL
+      try {
+        const { exec } = await import("child_process");
+        const { promisify } = await import("util");
+        const execAsync = promisify(exec);
+
+        await execAsync(
+          "docker-compose -f docker/docker-compose.mysql.yml down"
+        );
+        results.mysql = true;
+        console.log("MySQL container stopped");
+      } catch (error) {
+        console.error("Failed to stop MySQL:", error);
+      }
+
+      // Останавливаем PostgreSQL
+      try {
+        const { exec } = await import("child_process");
+        const { promisify } = await import("util");
+        const execAsync = promisify(exec);
+
+        await execAsync(
+          "docker-compose -f docker/docker-compose.postgresql.yml down"
+        );
+        results.postgresql = true;
+        console.log("PostgreSQL container stopped");
+      } catch (error) {
+        console.error("Failed to stop PostgreSQL:", error);
+      }
+
+      return results;
+    } catch (error) {
+      console.error("Error stopping fixed containers:", error);
+      return { mysql: false, postgresql: false };
+    }
+  }
+
+  async getFixedContainersStatus(): Promise<{
+    mysql: ContainerStatus;
+    postgresql: ContainerStatus;
+    docker: boolean;
+  }> {
+    try {
+      const isDockerRunning = await this.isDockerRunning();
+
+      if (!isDockerRunning) {
+        return {
+          mysql: {
+            id: "mysql-fixed",
+            dbType: "mysql",
+            status: "error",
+            error: "Docker not running",
+          },
+          postgresql: {
+            id: "postgresql-fixed",
+            dbType: "postgresql",
+            status: "error",
+            error: "Docker not running",
+          },
+          docker: false,
+        };
+      }
+
+      const { exec } = await import("child_process");
+      const { promisify } = await import("util");
+      const execAsync = promisify(exec);
+
+      // Базовые объекты статуса
+      const baseMysqlStatus: ContainerStatus = {
+        id: "mysql-fixed",
+        dbType: "mysql",
+        status: "stopped",
+      };
+
+      const basePostgresqlStatus: ContainerStatus = {
+        id: "postgresql-fixed",
+        dbType: "postgresql",
+        status: "stopped",
+      };
+
+      try {
+        // Проверяем контейнеры по именам
+        const checkContainer = async (
+          containerName: string
+        ): Promise<boolean> => {
+          try {
+            const { stdout } = await execAsync(
+              `docker ps --filter "name=${containerName}" --format "{{.Status}}"`
+            );
+            return stdout.trim().includes("Up");
+          } catch (error) {
+            return false;
+          }
+        };
+
+        // Проверяем MySQL контейнер
+        const isMySQLRunning = await checkContainer("sql-mysql");
+        if (isMySQLRunning) {
+          baseMysqlStatus.status = "running";
+          baseMysqlStatus.startedAt = new Date();
+          baseMysqlStatus.uptime = 0;
+          baseMysqlStatus.resources = { memory: "N/A", cpu: "N/A" };
+        }
+
+        // Проверяем PostgreSQL контейнер
+        const isPostgreSQLRunning = await checkContainer("sql-postgres");
+        if (isPostgreSQLRunning) {
+          basePostgresqlStatus.status = "running";
+          basePostgresqlStatus.startedAt = new Date();
+          basePostgresqlStatus.uptime = 0;
+          basePostgresqlStatus.resources = { memory: "N/A", cpu: "N/A" };
+        }
+
+        // Если не нашли по именам, проверяем через docker-compose как запасной вариант
+        if (!isMySQLRunning) {
+          try {
+            const { stdout } = await execAsync(
+              "docker-compose -f docker/docker-compose.mysql.yml ps -q mysql"
+            );
+            if (stdout.trim()) {
+              baseMysqlStatus.status = "running";
+            }
+          } catch (error) {
+            // Игнорируем ошибки
+          }
+        }
+
+        if (!isPostgreSQLRunning) {
+          try {
+            const { stdout } = await execAsync(
+              "docker-compose -f docker/docker-compose.postgresql.yml ps -q postgresql"
+            );
+            if (stdout.trim()) {
+              basePostgresqlStatus.status = "running";
+            }
+          } catch (error) {
+            // Игнорируем ошибки
+          }
+        }
+      } catch (error) {
+        console.error("Error checking container status:", error);
+      }
+
+      console.log("📊 Container status:", {
+        mysql: baseMysqlStatus.status,
+        postgresql: basePostgresqlStatus.status,
+      });
+
+      return {
+        mysql: baseMysqlStatus,
+        postgresql: basePostgresqlStatus,
+        docker: true,
+      };
+    } catch (error) {
+      console.error("Error in getFixedContainersStatus:", error);
+      return {
+        mysql: {
+          id: "mysql-fixed",
+          dbType: "mysql",
+          status: "error",
+          error: "Check failed",
+        },
+        postgresql: {
+          id: "postgresql-fixed",
+          dbType: "postgresql",
+          status: "error",
+          error: "Check failed",
+        },
+        docker: false,
+      };
+    }
+  }
+
+  async waitForDBReady(
     containerId: string,
     dbType: DatabaseType,
     maxAttempts = 30
   ): Promise<void> {
     for (let i = 0; i < maxAttempts; i++) {
       try {
-        await this.testConnection(containerId, dbType);
-        return;
-      } catch (error) {
+        if (dbType === "mysql") {
+          const result = await ConnectionChecker.checkMySQL();
+          if (result.success) return;
+        } else if (dbType === "postgresql") {
+          const result = await ConnectionChecker.checkPostgreSQL();
+          if (result.success) return;
+        }
+
         if (i === maxAttempts - 1) {
           throw new Error(
-            `База данных не запустилась за ${maxAttempts} секунд: ${this.errorToString(
-              error
-            )}`
+            `Database didn't start within ${maxAttempts} seconds`
           );
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      } catch (error) {
+        if (i === maxAttempts - 1) {
+          throw error;
         }
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     }
   }
 
-  private async testConnection(
-    containerId: string,
-    dbType: DatabaseType
-  ): Promise<void> {
-    const testQueries: Record<DatabaseType, string> = {
-      mysql: "SELECT 1",
-      postgresql: "SELECT 1",
-      sqlite: "SELECT 1",
-    };
+  private async isDockerRunning(): Promise<boolean> {
+    try {
+      const { exec } = await import("child_process");
+      const { promisify } = await import("util");
+      const execAsync = promisify(exec);
 
-    const result = await this.executeQuery(containerId, testQueries[dbType]);
-
-    if (!result.success) {
-      throw new Error(result.error || "Ошибка подключения к БД");
+      await execAsync("docker info");
+      return true;
+    } catch {
+      return false;
     }
   }
 

@@ -95,20 +95,6 @@ export function DatabaseSchemaEditor({
           >
             🚀 Сгенерировать SQL
           </button>
-          <button
-            onClick={() => onTestSQL(schema)}
-            className="bg-red-500 transition duration-200 cursor-pointer text-white px-4 py-2 rounded-lg hover:bg-red-600"
-            disabled={schema.tables.length === 0}
-          >
-            {isTesting ? (
-              <>
-                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                Тестирование...
-              </>
-            ) : (
-              <>🧪 Протестировать</>
-            )}
-          </button>
         </div>
       </div>
 

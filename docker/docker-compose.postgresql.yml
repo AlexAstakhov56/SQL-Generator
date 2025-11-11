@@ -1,12 +1,22 @@
 version: "3.8"
 services:
-  postgresql-test:
+  postgresql:
+    container_name: sql-postgres
     image: postgres:13
-    container_name: sql-constructor-postgres
-    environment:
-      POSTGRES_PASSWORD: root
-      POSTGRES_DB: test_db
     ports:
       - "5432:5432"
-    tmpfs:
-      - /var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: test_db
+      POSTGRES_USER: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d test_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres_data:
