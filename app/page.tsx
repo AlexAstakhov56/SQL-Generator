@@ -15,8 +15,8 @@ export default function Home() {
     MultiTableUtils.createDatabaseSchema("my_database")
   );
   const [generatedSQL, setGeneratedSQL] = useState<string>("");
+  const [selectSql, setSelectSql] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isTesting, setIsTesting] = useState(false);
 
   useEffect(() => {
     const initialSchema = MultiTableUtils.createDatabaseSchema("my_database");
@@ -84,7 +84,6 @@ export default function Home() {
 
   const handleGenerateSQL = async (schema: DatabaseSchema) => {
     setIsGenerating(true);
-    console.log("📤 Отправляемые данные:", { schema, selectedDB });
 
     try {
       // Генерация SQL для всей схемы
@@ -92,72 +91,19 @@ export default function Home() {
         schema,
         selectedDB
       );
-      console.log("🔧 Сгенерированный SQL:", sql);
 
       setGeneratedSQL(sql);
     } catch (error: any) {
       console.error("Generate SQL error:", error);
-      alert("Ошибка при генерации SQL: " + error.message);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleTestSchema = async (schema: DatabaseSchema) => {
-    setIsTesting(true);
-
-    try {
-      // Генерация SQL для тестирования
-      const sql = MultiTableGenerator.generateDatabaseSchema(
-        schema,
-        selectedDB
-      );
-      console.log("🧪 SQL для тестирования:", sql);
-
-      if (!sql) {
-        alert("Не удалось сгенерировать SQL для тестирования.");
-        return;
-      }
-
-      // Тестируем запрос
-      const testResponse = await fetch("/api/test-query", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          query: sql,
-          selectedDB,
-        }),
-      });
-
-      if (testResponse.ok) {
-        const results = await testResponse.json();
-        console.log("Test results:", results);
-
-        if (results.success) {
-          alert(
-            "✅ Тестирование завершено успешно! Проверьте консоль разработчика для деталей."
-          );
-        } else {
-          alert(
-            "❌ Тестирование завершено с ошибкой: " +
-              (results.error || "Unknown error")
-          );
-        }
-      } else {
-        const errorData = await testResponse.json();
-        throw new Error(errorData.error || "Testing failed");
-      }
-    } catch (error: any) {
-      console.error("Test error:", error);
-      alert("❌ Ошибка при тестировании: " + error.message);
-    } finally {
-      setIsTesting(false);
-    }
+  const handleSelectQueryGenerated = (sql: string) => {
+    setSelectSql(sql);
   };
 
-  // Валидация схемы перед генерацией
   const validateSchema = (schema: DatabaseSchema): boolean => {
     const validation = MultiTableUtils.validateSchema(schema);
 
@@ -175,14 +121,6 @@ export default function Home() {
     }
 
     await handleGenerateSQL(schema);
-  };
-
-  const handleTestWithValidation = async (schema: DatabaseSchema) => {
-    if (!validateSchema(schema)) {
-      return;
-    }
-
-    await handleTestSchema(schema);
   };
 
   return (
@@ -206,12 +144,17 @@ export default function Home() {
           schema={databaseSchema}
           onSchemaChange={setDatabaseSchema}
           onGenerateSQL={handleGenerateWithValidation}
-          onTestSQL={handleTestWithValidation}
           isGenerating={isGenerating}
-          isTesting={isTesting}
+          onSelectQueryGenerated={handleSelectQueryGenerated}
         />
         <div className="my-8">
-          <SQLPreview sql={generatedSQL} dbType={selectedDB} />
+          <SQLPreview
+            sql={generatedSQL}
+            selectSql={selectSql}
+            databaseSchema={databaseSchema}
+            dbType={selectedDB}
+            onSelectSqlChange={setSelectSql}
+          />
         </div>
         <div>
           <DatabaseSchemaVisualization schema={databaseSchema} />

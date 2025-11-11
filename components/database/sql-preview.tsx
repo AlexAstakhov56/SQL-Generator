@@ -2,21 +2,33 @@
 
 import { useState } from "react";
 
-import { TestResult } from "@/lib/types";
+import { DatabaseSchema, TestResult } from "@/lib/types";
 import { QueryTester } from "../testing/query-tester";
 import { DockerManager } from "../testing/docker-manager";
 
 interface SqlPreviewProps {
-  sql: string;
+  sql: string; // CREATE
+  selectSql?: string; // SELECT
   dbType: string;
+  databaseSchema: DatabaseSchema;
+  onSelectSqlChange?: (sql: string) => void;
 }
 
-export function SQLPreview({ sql, dbType }: SqlPreviewProps) {
-  const [activeTab, setActiveTab] = useState<"sql" | "test" | "docker">("sql");
+export function SQLPreview({
+  sql,
+  dbType,
+  selectSql,
+  databaseSchema,
+  onSelectSqlChange,
+}: SqlPreviewProps) {
+  const [activeTab, setActiveTab] = useState<
+    "create" | "select" | "test" | "docker"
+  >("create");
   const [testResults, setTestResults] = useState<TestResult[]>([]);
 
   const tabs = [
-    { id: "sql" as const, name: "SQL Запрос", icon: "📝" },
+    { id: "create" as const, name: "CREATE Запрос", icon: "📝" },
+    { id: "select" as const, name: "SELECT Запрос", icon: "🔍" },
     {
       id: "test" as const,
       name: "Тестирование в выбранной СУБД",
@@ -29,7 +41,21 @@ export function SQLPreview({ sql, dbType }: SqlPreviewProps) {
     },
   ];
 
-  const lineCount = sql ? sql.split("\n").length : 0;
+  const createLineCount = sql ? sql.split("\n").length : 0;
+  const selectLineCount = selectSql ? selectSql.split("\n").length : 0;
+
+  const getCurrentSql = () => {
+    switch (activeTab) {
+      case "create":
+        return sql;
+      case "select":
+        return selectSql || "";
+      case "test":
+        return selectSql || sql;
+      default:
+        return "";
+    }
+  };
 
   return (
     <div className="bg-white border rounded-lg overflow-hidden">
@@ -65,7 +91,7 @@ export function SQLPreview({ sql, dbType }: SqlPreviewProps) {
       </div>
 
       <div className="p-4">
-        {activeTab === "sql" && (
+        {activeTab === "create" && (
           <div>
             <div className="bg-gray-900 rounded-lg shadow-sm border border-gray-700">
               <div className="flex justify-between items-center p-4 border-b border-gray-700">
@@ -75,7 +101,7 @@ export function SQLPreview({ sql, dbType }: SqlPreviewProps) {
                   </span>
                   {sql && (
                     <span className="text-md text-gray-500">
-                      {lineCount} lines
+                      {createLineCount} lines
                     </span>
                   )}
                 </div>
@@ -97,11 +123,45 @@ export function SQLPreview({ sql, dbType }: SqlPreviewProps) {
           </div>
         )}
 
+        {activeTab === "select" && (
+          <div>
+            <div className="bg-gray-900 rounded-lg shadow-sm border border-gray-700">
+              <div className="flex justify-between items-center p-4 border-b border-gray-700">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-medium text-gray-300 bg-gray-800 px-2 py-1 rounded">
+                    {dbType.toUpperCase()}
+                  </span>
+                  {sql && (
+                    <span className="text-md text-gray-500">
+                      {selectLineCount} lines
+                    </span>
+                  )}
+                </div>
+                {selectSql && (
+                  <button
+                    onClick={() => navigator.clipboard.writeText(selectSql)}
+                    className="text-md cursor-pointer text-gray-400 hover:text-white bg-gray-800 px-3 py-1 rounded transition-colors"
+                  >
+                    📋 Копировать
+                  </button>
+                )}
+              </div>
+              <div className="p-4">
+                <pre className="text-green-400 font-mono text-md whitespace-pre-wrap overflow-x-auto">
+                  {selectSql || "// SQL будет сгенерирован здесь"}
+                </pre>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === "test" && (
           <div className="space-y-4">
             <QueryTester
               sql={sql}
+              selectSql={selectSql}
               dbType={dbType as any}
+              databaseSchema={databaseSchema}
               onResultsChange={setTestResults}
             />
           </div>

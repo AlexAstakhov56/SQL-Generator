@@ -71,153 +71,13 @@ export function TestResultCard({
 
   const queryType = getQueryType();
 
-  // Функция для отображения результата в зависимости от типа запроса
-  const renderQueryResult = () => {
-    switch (queryType) {
-      case "SELECT":
-        return renderSelectResult();
-      case "INSERT":
-        return renderInsertResult();
-      case "UPDATE":
-      case "DELETE":
-        return renderUpdateDeleteResult();
-      case "CREATE":
-      case "DROP":
-      case "ALTER":
-        return renderDDLResult();
-      default:
-        return renderDefaultResult();
-    }
-  };
-
-  const renderSelectResult = () => {
-    if (!queryResult.data || queryResult.data.length === 0) {
-      return (
-        <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded">
-          📭 SELECT запрос вернул 0 строк
-        </div>
-      );
-    }
-
-    return (
-      <div className="border rounded-lg overflow-hidden">
-        <div className="bg-gray-50 px-3 py-2 border-b flex justify-between items-center">
-          <strong>📋 Результаты SELECT запроса:</strong>
-          <span className="text-xs text-gray-500">
-            {queryResult.data.length} строк
-            {queryResult.columns && ` × ${queryResult.columns.length} колонок`}
-          </span>
-        </div>
-        <div className="max-h-48 overflow-auto">
-          <div className="p-3 space-y-2">
-            <div className="text-xs text-gray-600">
-              <strong>Структура:</strong>{" "}
-              {queryResult.columns?.join(", ") || "Неизвестно"}
-            </div>
-            <details className="text-xs">
-              <summary className="cursor-pointer text-blue-600 hover:text-blue-800">
-                Показать данные ({queryResult.data.length} строк)
-              </summary>
-              <pre className="mt-2 p-2 bg-gray-50 rounded overflow-x-auto">
-                {JSON.stringify(queryResult.data, null, 2)}
-              </pre>
-            </details>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderInsertResult = () => {
-    return (
-      <div className="text-sm text-green-600 bg-green-50 p-3 rounded">
-        ✅ <strong>INSERT выполнен успешно</strong>
-        {queryResult.meta?.rowCount !== undefined && (
-          <div className="mt-1">
-            Добавлено строк: {queryResult.meta.rowCount}
-          </div>
-        )}
-        {queryResult.meta?.insertId !== undefined && (
-          <div className="mt-1">
-            ID последней вставки: {queryResult.meta.insertId}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderUpdateDeleteResult = () => {
-    return (
-      <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded">
-        ✅ <strong>{queryType} выполнен успешно</strong>
-        {queryResult.rowsAffected !== undefined && (
-          <div className="mt-1">
-            Затронуто строк: {queryResult.rowsAffected}
-          </div>
-        )}
-        {queryResult.meta?.rowCount !== undefined && (
-          <div className="mt-1">
-            Затронуто строк: {queryResult.meta.rowCount}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderDDLResult = () => {
-    return (
-      <div className="text-sm text-purple-600 bg-purple-50 p-3 rounded">
-        ✅ <strong>{queryType} выполнен успешно</strong>
-        <div className="mt-1">Структура базы данных изменена</div>
-        {queryType === "CREATE" && (
-          <div className="text-xs text-purple-700 mt-1">
-            🏗️ Создана новая таблица/структура
-          </div>
-        )}
-        {queryType === "ALTER" && (
-          <div className="text-xs text-purple-700 mt-1">
-            🔧 Структура таблицы изменена
-          </div>
-        )}
-        {queryType === "DROP" && (
-          <div className="text-xs text-purple-700 mt-1">
-            🗑️ Таблица/структура удалена
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const renderDefaultResult = () => {
     return (
       <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
         ✅ <strong>Запрос выполнен успешно</strong>
-        {queryResult.data && queryResult.data.length > 0 ? (
-          <div className="mt-2">
-            Возвращено данных: {queryResult.data.length} строк
-          </div>
-        ) : (
+        {queryType === "CREATE" && (
           <div className="mt-1">Запрос не возвращает данные</div>
         )}
-      </div>
-    );
-  };
-
-  // Функция для форматирования данных
-  const formatDataPreview = (data: any[]) => {
-    if (!data || data.length === 0) return null;
-
-    const firstRow = data[0];
-    const columns = Object.keys(firstRow);
-
-    return (
-      <div className="text-xs">
-        <div className="text-gray-600 mb-1">
-          <strong>Структура:</strong> {columns.join(", ")}
-        </div>
-        <div className="text-gray-600">
-          <strong>Первая строка:</strong> {JSON.stringify(firstRow)}
-        </div>
       </div>
     );
   };
@@ -270,21 +130,21 @@ export function TestResultCard({
 
       {queryResult.success ? (
         <>
-          <div className="space-y-3">
-            <p className="text-lg text-green-600">
+          <div className="mb-4">
+            <p className="text-lg text-green-600 font-medium">
               {queryType === "SELECT" &&
                 queryResult.data &&
                 queryResult.data.length > 0 &&
-                `SELECT выполнен успешно. Найдено строк: ${queryResult.data.length}`}
+                `✅ Найдено ${queryResult.data.length} строк`}
               {queryType === "SELECT" &&
                 (!queryResult.data || queryResult.data.length === 0) &&
-                "SELECT выполнен успешно. Данные не найдены"}
-              {queryType === "INSERT" && "INSERT выполнен успешно"}
-              {queryType === "UPDATE" && "UPDATE выполнен успешно"}
-              {queryType === "DELETE" && "DELETE выполнен успешно"}
-              {queryType === "CREATE" && "CREATE выполнен успешно"}
-              {queryType === "DROP" && "DROP выполнен успешно"}
-              {queryType === "ALTER" && "ALTER выполнен успешно"}
+                "✅ Запрос выполнен"}
+              {queryType === "INSERT" && "✅ Данные успешно добавлены"}
+              {queryType === "UPDATE" && "✅ Данные успешно обновлены"}
+              {queryType === "DELETE" && "✅ Данные успешно удалены"}
+              {queryType === "CREATE" && "✅ Таблица успешно создана"}
+              {queryType === "DROP" && "✅ Таблица успешно удалена"}
+              {queryType === "ALTER" && "✅ Структура успешно изменена"}
               {![
                 "SELECT",
                 "INSERT",
@@ -293,19 +153,12 @@ export function TestResultCard({
                 "CREATE",
                 "DROP",
                 "ALTER",
-              ].includes(queryType) && "Запрос выполнен успешно"}
+              ].includes(queryType) && "✅ Запрос выполнен успешно"}
             </p>
-
-            {queryResult.data && queryResult.data.length > 0 && (
-              <p className="text-lg text-green-600">
-                Возвращено строк: {queryResult.data.length}
-              </p>
-            )}
           </div>
 
           {showDetails && (
-            <div className="mt-4 space-y-3">
-              {/* Информация о подключении */}
+            <div className="space-y-4">
               <div className="text-sm text-gray-600 bg-white p-3 rounded border">
                 <div className="font-medium mb-2">🔌 Подключение к СУБД:</div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
@@ -327,15 +180,9 @@ export function TestResultCard({
                       <strong>База данных:</strong> {connectionDetails.database}
                     </div>
                   )}
-                  {dbType === "sqlite" && (
-                    <div>
-                      <strong>Режим:</strong> In-memory база
-                    </div>
-                  )}
                 </div>
               </div>
 
-              {/* Мета-информация СУБД */}
               {queryResult.meta && (
                 <div className="text-sm text-gray-600 bg-white p-3 rounded border">
                   <div className="font-medium mb-2">
@@ -350,83 +197,22 @@ export function TestResultCard({
                         </code>
                       </div>
                     )}
-                    {queryResult.meta.affectedRows !== undefined && (
+                    {queryResult.meta.command && (
                       <div>
-                        <strong>Затронуто строк:</strong>{" "}
-                        {queryResult.meta.affectedRows}
-                      </div>
-                    )}
-                    {queryResult.meta.rowCount !== undefined && (
-                      <div>
-                        <strong>Возвращено строк:</strong>{" "}
-                        {queryResult.meta.rowCount}
-                      </div>
-                    )}
-                    {queryResult.meta.insertId !== undefined && (
-                      <div>
-                        <strong>ID вставки:</strong> {queryResult.meta.insertId}
+                        <strong>Тип запроса:</strong> {queryResult.meta.command}
                       </div>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* Производительность */}
-              <div className="grid grid-cols-2 gap-2">
-                {queryResult.executionTime && (
-                  <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
-                    ⏱️ <strong>Время выполнения:</strong>{" "}
-                    {queryResult.executionTime}ms
-                  </div>
-                )}
-              </div>
-              {queryResult.data && queryResult.data.length > 0 && (
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 px-3 py-2 border-b flex justify-between items-center">
-                    <strong>📋 Результаты запроса:</strong>
-                    <span className="text-xs text-gray-500">
-                      {queryResult.data.length} строк
-                      {queryResult.columns &&
-                        ` × ${queryResult.columns.length} колонок`}
-                    </span>
-                  </div>
-                  <div className="max-h-48 overflow-auto">
-                    <div className="p-3 space-y-2">
-                      {formatDataPreview(queryResult.data)}
-                      <details className="text-xs">
-                        <summary className="cursor-pointer text-blue-600 hover:text-blue-800">
-                          Показать полные данные ({queryResult.data.length}{" "}
-                          строк)
-                        </summary>
-                        <pre className="mt-2 p-2 bg-gray-50 rounded overflow-x-auto">
-                          {JSON.stringify(queryResult.data, null, 2)}
-                        </pre>
-                      </details>
-                    </div>
-                  </div>
+              {queryResult.executionTime && (
+                <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
+                  ⏱️ <strong>Время выполнения:</strong>{" "}
+                  {queryResult.executionTime}ms
                 </div>
               )}
-
-              {/* Информация о выполнении */}
-              {queryResult.rowsAffected !== undefined &&
-                queryResult.rowsAffected > 0 && (
-                  <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
-                    📝 <strong>Операция выполнена:</strong> Затронуто{" "}
-                    {queryResult.rowsAffected} строк
-                  </div>
-                )}
-
-              {renderQueryResult()}
-              {/* Информация о колонках */}
-              {queryResult.columns && queryResult.columns.length > 0 && (
-                <div className="text-sm text-purple-600 bg-purple-50 p-2 rounded">
-                  🗂️ <strong>Структура результата:</strong>{" "}
-                  {queryResult.columns.length} колонок
-                  <div className="text-xs mt-1 text-purple-700">
-                    {queryResult.columns.join(", ")}
-                  </div>
-                </div>
-              )}
+              {renderDefaultResult()}
             </div>
           )}
         </>
@@ -447,7 +233,7 @@ export function TestResultCard({
       )}
 
       {warnings && warnings.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-yellow-200">
+        <div className="mt-4 pt-4 border-t border-yellow-200">
           <h5 className="text-sm font-medium text-yellow-800 mb-2">
             ⚠️ Предупреждения:
           </h5>
@@ -460,26 +246,22 @@ export function TestResultCard({
       )}
 
       {showDetails && (
-        <div className="mt-3 pt-3 border-t border-gray-200">
+        <div className="mt-4 pt-4 border-t border-gray-200">
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2 text-green-600">
               <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
               <span>
-                <strong>Тестирование</strong> в {getDBName(dbType)}
+                <strong>Реальное тестирование</strong> в {getDBName(dbType)}
               </span>
             </div>
             <div className="text-gray-500">
+              {queryResult.meta?.version && (
+                <span>Версия: {queryResult.meta.version.split(",")[0]}</span>
+              )}
               {queryResult.executionTime && (
                 <span className="ml-2">• {queryResult.executionTime}ms</span>
               )}
             </div>
-          </div>
-
-          <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-gray-500">
-            <div>✓ Подключение к реальной СУБД</div>
-            <div>✓ Выполнение настоящих запросов</div>
-            <div>✓ Возврат реальных данных</div>
-            <div>✓ Измерение времени выполнения</div>
           </div>
         </div>
       )}

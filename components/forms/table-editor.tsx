@@ -1,14 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import {
-  TableSchema,
-  ColumnDefinition,
-  IndexDefinition,
-} from "../../lib/types";
+import { TableSchema, ColumnDefinition } from "../../lib/types";
 import { createDefaultColumn } from "../../lib/utils/schema-utils";
 import { ColumnEditor } from "./column-editor";
-import { IndexEditor } from "./index-editor";
 import { DataEditor } from "./data-editor";
 
 interface TableEditorProps {
