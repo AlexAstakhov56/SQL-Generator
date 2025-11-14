@@ -7,6 +7,7 @@ export * from "./sql-generator";
 export * from "./testing";
 export * from "./api";
 export * from "./utils";
+export * from "./select-types";
 
 export {
   DATA_TYPES,

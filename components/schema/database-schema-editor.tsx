@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DatabaseSchema, TableSchema } from "../../lib/types";
+import { DatabaseSchema, DatabaseType, TableSchema } from "../../lib/types";
 import { MultiTableUtils } from "../../lib/utils/multi-table-utils";
 import { TableList } from "./table-list";
 import { RelationshipBuilder } from "./relationship-builder";
@@ -9,6 +9,7 @@ import { SelectQueryBuilder } from "./select-query-builder";
 
 interface DatabaseSchemaEditorProps {
   schema: DatabaseSchema;
+  selectedDB: DatabaseType;
   onSchemaChange: (schema: DatabaseSchema) => void;
   onGenerateSQL: (schema: DatabaseSchema) => void;
   isGenerating?: boolean;
@@ -17,6 +18,7 @@ interface DatabaseSchemaEditorProps {
 
 export function DatabaseSchemaEditor({
   schema,
+  selectedDB,
   onSchemaChange,
   onGenerateSQL,
   onSelectQueryGenerated,
@@ -30,7 +32,6 @@ export function DatabaseSchemaEditor({
       id: `table_${Date.now()}`,
       name: `table_${schema.tables.length + 1}`,
       columns: [],
-      indexes: [],
       relationships: [],
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -158,6 +159,7 @@ export function DatabaseSchemaEditor({
         <SelectQueryBuilder
           schema={schema}
           onQueryGenerated={handleSelectQueryGenerated}
+          selectedDbType={selectedDB}
         />
       )}
     </div>

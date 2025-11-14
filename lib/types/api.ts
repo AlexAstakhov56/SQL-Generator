@@ -1,5 +1,5 @@
 import { DatabaseType } from "./base";
-import { TableSchema, DatabaseProject } from "./schema";
+import { TableSchema } from "./schema";
 import { MultiDBTestResult, ContainerStatus } from "./testing";
 
 export interface ApiResponse<T> {
@@ -39,8 +39,6 @@ export interface TestQueryResponse {
   containerInfo: Record<DatabaseType, ContainerStatus>;
 }
 
-export type ProjectsResponse = ApiResponse<DatabaseProject[]>;
-export type ProjectResponse = ApiResponse<DatabaseProject>;
 export type TablesResponse = ApiResponse<TableSchema[]>;
 export type TableResponse = ApiResponse<TableSchema>;
 export type TestResponse = ApiResponse<TestQueryResponse>;

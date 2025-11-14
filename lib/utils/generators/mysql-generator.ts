@@ -3,6 +3,8 @@ import {
   ColumnDefinition,
   GenerationOptions,
   DEFAULT_GENERATION_OPTIONS,
+  SelectConfig,
+  SelectGenerationOptions,
 } from "../../types";
 import { BaseSQLGenerator } from "./base-generator";
 
@@ -13,10 +15,8 @@ export class MySQLGenerator extends BaseSQLGenerator {
   ): string {
     const columnsSQL = this.generateColumns(schema.columns, "mysql");
 
-    // Генерируем PRIMARY KEY отдельно
     const primaryKeysSQL = this.generatePrimaryKeys(schema.columns);
 
-    // Генерируем FOREIGN KEYS
     const foreignKeysSQL = this.generateForeignKeys(
       schema.relationships,
       "mysql"
@@ -48,42 +48,94 @@ export class MySQLGenerator extends BaseSQLGenerator {
       sql += ` COMMENT='${this.escapeString(schema.comment)}'`;
     }
 
-    //const mysqlOptions = options.mysql || {};
-
-    // Используем настройки из dbSpecific если они есть
-    // const dbSpecific = schema.dbSpecific?.mysql || {};
-
-    // if (dbSpecific.engine || mysqlOptions.engine) {
-    //   sql += ` ENGINE=${dbSpecific.engine || mysqlOptions.engine}`;
-    // }
-    // if (dbSpecific.charset || mysqlOptions.charset) {
-    //   sql += ` CHARSET=${dbSpecific.charset || mysqlOptions.charset}`;
-    // }
-    // if (dbSpecific.collation || mysqlOptions.collation) {
-    //   sql += ` COLLATE=${dbSpecific.collation || mysqlOptions.collation}`;
-    // }
-
     return sql + ";";
   }
 
-  generateInsert(tableName: string, data: Record<string, any>[]): string {
-    if (data.length === 0) {
-      return "";
+  generateSelect(
+    config: SelectConfig,
+    options: SelectGenerationOptions = {}
+  ): string {
+    if (config.selectedTables.length === 0) {
+      throw new Error("Не выбраны таблицы для SELECT запроса");
     }
 
-    const columns = Object.keys(data[0]);
-    const escapedColumns = columns.map((col) => this.escapeName(col));
+    const finalOptions = {
+      format: true,
+      includeAliases: true,
+      ...options,
+    };
 
-    const values = data
-      .map(
-        (row) =>
-          `(${columns.map((col) => this.formatValue(row[col])).join(", ")})`
-      )
-      .join(",\n");
+    let sql = "SELECT\n";
 
-    return `INSERT INTO ${this.escapeName(tableName)} (${escapedColumns.join(
-      ", "
-    )})\nVALUES ${values};`;
+    // SELECT колонки
+    const columnsSQL = this.generateSelectColumns(
+      config.selectedColumns,
+      "mysql"
+    );
+    sql += `  ${columnsSQL}\n`;
+
+    // FROM
+    sql += `FROM ${config.selectedTables[0]}\n`;
+
+    // JOIN
+    const joinsSQL = this.generateJoins(config.joins, "mysql");
+    if (joinsSQL) {
+      sql += `${joinsSQL}\n`;
+    }
+
+    // WHERE
+    const whereSQL = this.generateWhereConditions(
+      config.whereConditions,
+      "mysql"
+    );
+    if (whereSQL) {
+      sql += `${whereSQL}\n`;
+    }
+
+    // GROUP BY
+    const groupBySQL = this.generateGroupBy(config.groupBy, "mysql");
+    if (groupBySQL) {
+      sql += `${groupBySQL}\n`;
+    }
+
+    // HAVING
+    const havingSQL = this.generateHavingConditions(
+      config.havingConditions,
+      "mysql"
+    );
+    if (havingSQL) {
+      sql += `${havingSQL}\n`;
+    }
+
+    // ORDER BY
+    const orderBySQL = this.generateOrderBy(config.orderBy, "mysql");
+    if (orderBySQL) {
+      sql += `${orderBySQL}\n`;
+    }
+
+    // LIMIT & OFFSET
+    const limitOffsetSQL = this.generateLimitOffset(
+      config.limit,
+      config.offset
+      //"mysql"
+    );
+    if (limitOffsetSQL) {
+      sql += `${limitOffsetSQL}\n`;
+    }
+
+    return sql.trim() + ";";
+  }
+
+  protected generateLimitOffset(limit?: number, offset?: number): string {
+    if (limit && offset !== undefined) {
+      return `LIMIT ${offset}, ${limit}`; // MySQL специфичный синтаксис
+    }
+
+    if (limit) {
+      return `LIMIT ${limit}`;
+    }
+
+    return "";
   }
 
   protected generateColumnDefinition(column: ColumnDefinition): string {
@@ -134,7 +186,6 @@ export class MySQLGenerator extends BaseSQLGenerator {
     return parts.join(" ");
   }
 
-  // Новый метод для генерации PRIMARY KEY constraints
   protected generatePrimaryKeys(columns: ColumnDefinition[]): string {
     const primaryKeyColumns = columns.filter((col) =>
       col.constraints.includes("PRIMARY_KEY")
@@ -201,7 +252,6 @@ export class MySQLGenerator extends BaseSQLGenerator {
     }
   }
 
-  // Новый метод для форматирования DEFAULT значений
   protected formatDefaultValue(value: any, columnType?: string): string {
     if (value === null || value === undefined) {
       return "NULL";
@@ -263,6 +313,14 @@ export class MySQLGenerator extends BaseSQLGenerator {
 
     if (value instanceof Date) {
       return `'${value.toISOString().slice(0, 19).replace("T", " ")}'`;
+    }
+
+    if (typeof value === "string") {
+      const upperValue = value.toUpperCase();
+      if (upperValue === "NULL" || upperValue === "CURRENT_TIMESTAMP") {
+        return upperValue;
+      }
+      return `'${this.escapeString(value)}'`;
     }
 
     return `'${this.escapeString(value.toString())}'`;

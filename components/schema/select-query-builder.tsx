@@ -1,84 +1,25 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { DatabaseSchema } from "../../lib/types";
+import { useState, useMemo, useRef } from "react";
+import {
+  AggregateFunction,
+  DatabaseSchema,
+  DatabaseType,
+  SelectColumn,
+  SelectConfig,
+} from "../../lib/types";
 import { Button } from "../ui/button";
 
 interface SelectQueryBuilderProps {
   schema: DatabaseSchema;
   onQueryGenerated: (sql: string) => void;
-}
-
-type AggregateFunction = "COUNT" | "MIN" | "MAX" | "SUM" | "AVG" | "NONE";
-
-interface SelectColumn {
-  table: string;
-  column: string;
-  alias?: string;
-  aggregateFunction?: AggregateFunction;
-  aggregateAlias?: string;
-}
-
-interface SelectConfig {
-  selectedTables: string[];
-  selectedColumns: {
-    table: string;
-    column: string;
-    alias?: string;
-    aggregateFunction?: AggregateFunction;
-    aggregateAlias?: string;
-  }[];
-  joins: {
-    id: string;
-    leftTable: string;
-    rightTable: string;
-    leftColumn: string;
-    rightColumn: string;
-    type: "INNER" | "LEFT" | "RIGHT" | "FULL";
-  }[];
-  whereConditions: {
-    id: string;
-    table: string;
-    column: string;
-    operator:
-      | "="
-      | "!="
-      | ">"
-      | "<"
-      | ">="
-      | "<="
-      | "LIKE"
-      | "IN"
-      | "BETWEEN"
-      | "IS NULL"
-      | "IS NOT NULL";
-    value: string;
-    logicalOperator: "AND" | "OR";
-  }[];
-  orderBy: {
-    id: string;
-    table: string;
-    column: string;
-    direction: "ASC" | "DESC";
-  }[];
-  groupBy: {
-    id: string;
-    table: string;
-    column: string;
-  }[];
-  havingConditions: {
-    id: string;
-    column: string;
-    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "LIKE" | "IN" | "BETWEEN";
-    value: string;
-    logicalOperator: "AND" | "OR";
-  }[];
-  limit?: number;
+  selectedDbType?: DatabaseType;
 }
 
 export function SelectQueryBuilder({
   schema,
   onQueryGenerated,
+  selectedDbType = "sqlite",
 }: SelectQueryBuilderProps) {
   const [config, setConfig] = useState<SelectConfig>({
     selectedTables: [],
@@ -90,6 +31,10 @@ export function SelectQueryBuilder({
     havingConditions: [],
     limit: 100,
   });
+
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [previewSql, setPreviewSql] = useState<string>("");
 
   const availableTables = schema.tables;
 
@@ -178,12 +123,10 @@ export function SelectQueryBuilder({
       let aggregateAlias: string | undefined;
 
       if (col.aggregateFunction && col.aggregateFunction !== "NONE") {
-        // Для агрегатных функций генерируем алиас
         aggregateAlias = needsAlias
           ? `${col.aggregateFunction.toLowerCase()}_${col.table}_${col.column}`
           : `${col.aggregateFunction.toLowerCase()}_${col.column}`;
       } else {
-        // Для обычных колонок
         alias = needsAlias ? `${col.table}_${col.column}` : undefined;
       }
 
@@ -243,7 +186,6 @@ export function SelectQueryBuilder({
 
       let newSelectedColumns: SelectColumn[];
       if (isSelected) {
-        // Удаляем обычную колонку (без агрегатной функции)
         newSelectedColumns = prev.selectedColumns.filter(
           (c) =>
             !(
@@ -253,7 +195,6 @@ export function SelectQueryBuilder({
             )
         );
       } else {
-        // Добавляем обычную колонку
         newSelectedColumns = [
           ...prev.selectedColumns,
           {
@@ -295,7 +236,6 @@ export function SelectQueryBuilder({
     });
   };
 
-  // Функция для обновления агрегатной функции
   const handleUpdateAggregateFunction = (
     index: number,
     func: AggregateFunction
@@ -316,7 +256,6 @@ export function SelectQueryBuilder({
     });
   };
 
-  // Функция для удаления колонки (обычной или агрегатной)
   const handleRemoveColumn = (index: number) => {
     setConfig((prev) => ({
       ...prev,
@@ -505,112 +444,63 @@ export function SelectQueryBuilder({
     }));
   };
 
-  const generateSQL = () => {
-    if (config.selectedTables.length === 0) return "";
-
-    let sql = "SELECT\n";
-
-    if (config.selectedColumns.length === 0) {
-      sql += "  *\n";
-    } else {
-      const columnLines = config.selectedColumns.map((col) => {
-        if (col.aggregateFunction && col.aggregateFunction !== "NONE") {
-          // Для агрегатных функций
-          const baseExpression =
-            col.column === "*"
-              ? `${col.aggregateFunction}(${col.column})`
-              : `${col.aggregateFunction}(${col.table}.${col.column})`;
-
-          return col.aggregateAlias
-            ? `  ${baseExpression} as ${col.aggregateAlias}`
-            : `  ${baseExpression}`;
-        } else {
-          // Для обычных колонок
-          const baseColumn = `${col.table}.${col.column}`;
-          return col.alias
-            ? `  ${baseColumn} as ${col.alias}`
-            : `  ${baseColumn}`;
-        }
-      });
-      sql += columnLines.join(",\n") + "\n";
+  const handleGeneratePreview = async () => {
+    if (config.selectedTables.length === 0 || !isValidQuery) {
+      setPreviewSql("");
+      return;
     }
 
-    sql += `FROM ${config.selectedTables[0]}\n`;
+    setIsGenerating(true);
+    setGenerationError(null);
 
-    config.joins.forEach((join) => {
-      if (join.leftColumn && join.rightColumn) {
-        sql += `${join.type} JOIN ${join.rightTable} ON ${join.leftTable}.${join.leftColumn} = ${join.rightTable}.${join.rightColumn}\n`;
+    try {
+      const response = await fetch("/api/generate-sql/select", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          config,
+          dbType: selectedDbType,
+          options: {
+            format: true,
+            includeAliases: true,
+          },
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Ошибка генерации SQL");
       }
-    });
 
-    const validWhereConditions = config.whereConditions.filter(
-      (condition) =>
-        condition.column &&
-        (condition.operator.includes("NULL") || condition.value !== "")
-    );
+      if (result.errors && result.errors.length > 0) {
+        setGenerationError(result.errors.join(", "));
+        setPreviewSql("");
+        return "";
+      }
 
-    if (validWhereConditions.length > 0) {
-      sql += "WHERE\n";
-      const whereLines = validWhereConditions.map((condition, index) => {
-        const columnRef = `${condition.table}.${condition.column}`;
-        let conditionStr = "";
-
-        if (condition.operator.includes("NULL")) {
-          conditionStr = `${columnRef} ${condition.operator}`;
-        } else {
-          conditionStr = `${columnRef} ${condition.operator} '${condition.value}'`;
-        }
-
-        return `  ${
-          index > 0 ? condition.logicalOperator + " " : ""
-        }${conditionStr}`;
-      });
-
-      sql += whereLines.join("\n") + "\n";
-    }
-
-    const validGroupBy = config.groupBy.filter((group) => group.column);
-    if (validGroupBy.length > 0) {
-      const groupByColumns = validGroupBy.map(
-        (group) => `${group.table}.${group.column}`
+      const sql = result.sql;
+      setPreviewSql(sql);
+      return sql;
+    } catch (error) {
+      console.error("Ошибка генерации SQL:", error);
+      setGenerationError(
+        error instanceof Error ? error.message : "Неизвестная ошибка"
       );
-      sql += `GROUP BY ${groupByColumns.join(", ")}\n`;
+      setPreviewSql("");
+    } finally {
+      setIsGenerating(false);
     }
-
-    const validHavingConditions = config.havingConditions.filter(
-      (condition) => condition.column && condition.value !== ""
-    );
-
-    if (validHavingConditions.length > 0) {
-      sql += "HAVING\n";
-      const havingLines = validHavingConditions.map((condition, index) => {
-        const conditionStr = `${condition.column} ${condition.operator} '${condition.value}'`;
-        return `  ${
-          index > 0 ? condition.logicalOperator + " " : ""
-        }${conditionStr}`;
-      });
-
-      sql += havingLines.join("\n") + "\n";
-    }
-
-    const validOrderBy = config.orderBy.filter((order) => order.column);
-    if (validOrderBy.length > 0) {
-      sql +=
-        "ORDER BY " +
-        validOrderBy
-          .map((order) => `${order.table}.${order.column} ${order.direction}`)
-          .join(", ") +
-        "\n";
-    }
-
-    if (config.limit) {
-      sql += `LIMIT ${config.limit}\n`;
-    }
-
-    return sql;
   };
 
-  const sqlQuery = generateSQL();
+  const handleApply = async () => {
+    const sql = await handleGeneratePreview();
+    if (sql) {
+      onQueryGenerated(sql);
+    }
+  };
 
   const isValidQuery =
     config.selectedTables.length > 0 &&
@@ -651,6 +541,11 @@ export function SelectQueryBuilder({
 
   return (
     <div className="space-y-6">
+      {generationError && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded text-red-800">
+          ❌ Ошибка генерации: {generationError}
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-6">
           <div className="bg-white border rounded-lg p-4">
@@ -1501,8 +1396,8 @@ export function SelectQueryBuilder({
 
         <div className="bg-white border rounded-lg p-4">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="font-medium text-xl text-gray-900">
-              📝 SELECT запрос
+            <h3 className="font-medium text-lg text-gray-900">
+              📝 SELECT запрос ({selectedDbType})
             </h3>
             <div className="flex items-center space-x-2">
               {!isValidQuery && (
@@ -1511,8 +1406,15 @@ export function SelectQueryBuilder({
                 </span>
               )}
               <Button
-                onClick={() => onQueryGenerated(sqlQuery)}
-                disabled={!sqlQuery.trim() || !isValidQuery}
+                onClick={handleGeneratePreview}
+                disabled={!isValidQuery || isGenerating}
+                variant="success"
+              >
+                {isGenerating ? "⏳" : "🔄"} Обновить превью
+              </Button>
+              <Button
+                onClick={handleApply}
+                disabled={!previewSql.trim() || !isValidQuery || isGenerating}
                 variant="primary"
               >
                 Применить
@@ -1520,7 +1422,7 @@ export function SelectQueryBuilder({
             </div>
           </div>
           <pre className="bg-gray-50 p-3 rounded border text-lg overflow-x-auto max-h-96">
-            {sqlQuery || "// Выберите таблицы и колонки для генерации SQL"}
+            {previewSql || "// Выберите таблицы и колонки для генерации SQL"}
           </pre>
 
           {!isValidQuery &&

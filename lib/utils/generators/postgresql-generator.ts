@@ -3,6 +3,8 @@ import {
   ColumnDefinition,
   GenerationOptions,
   DEFAULT_GENERATION_OPTIONS,
+  SelectConfig,
+  SelectGenerationOptions,
 } from "../../types";
 import { BaseSQLGenerator } from "./base-generator";
 
@@ -13,10 +15,8 @@ export class PostgreSQLGenerator extends BaseSQLGenerator {
   ): string {
     const columnsSQL = this.generateColumns(schema.columns, "postgresql");
 
-    // Генерируем PRIMARY KEY отдельно
     const primaryKeysSQL = this.generatePrimaryKeys(schema.columns);
 
-    // Генерируем FOREIGN KEYS
     const foreignKeysSQL = this.generateForeignKeys(
       schema.relationships,
       "postgresql"
@@ -70,38 +70,88 @@ export class PostgreSQLGenerator extends BaseSQLGenerator {
     return sql;
   }
 
-  generateInsert(tableName: string, data: Record<string, any>[]): string {
-    if (data.length === 0) {
-      return "";
+  generateSelect(
+    config: SelectConfig,
+    options: SelectGenerationOptions = {}
+  ): string {
+    if (config.selectedTables.length === 0) {
+      throw new Error("Не выбраны таблицы для SELECT запроса");
     }
 
-    const columns = Object.keys(data[0]);
-    const escapedColumns = columns.map((col) => this.escapeName(col));
+    const finalOptions = {
+      format: true,
+      includeAliases: true,
+      ...options,
+    };
 
-    const values = data
-      .map(
-        (row) =>
-          `(${columns.map((col) => this.formatValue(row[col])).join(", ")})`
-      )
-      .join(",\n");
+    let sql = "SELECT\n";
 
-    return `INSERT INTO ${this.escapeName(tableName)} (${escapedColumns.join(
-      ", "
-    )})\nVALUES ${values};`;
+    const columnsSQL = this.generateSelectColumns(
+      config.selectedColumns,
+      "postgresql"
+    );
+    sql += `  ${columnsSQL}\n`;
+
+    // FROM
+    sql += `FROM ${config.selectedTables[0]}\n`;
+
+    // JOIN
+    const joinsSQL = this.generateJoins(config.joins, "postgresql");
+    if (joinsSQL) {
+      sql += `${joinsSQL}\n`;
+    }
+
+    // WHERE
+    const whereSQL = this.generateWhereConditions(
+      config.whereConditions,
+      "postgresql"
+    );
+    if (whereSQL) {
+      sql += `${whereSQL}\n`;
+    }
+
+    // GROUP BY
+    const groupBySQL = this.generateGroupBy(config.groupBy, "postgresql");
+    if (groupBySQL) {
+      sql += `${groupBySQL}\n`;
+    }
+
+    // HAVING
+    const havingSQL = this.generateHavingConditions(
+      config.havingConditions,
+      "postgresql"
+    );
+    if (havingSQL) {
+      sql += `${havingSQL}\n`;
+    }
+
+    // ORDER BY
+    const orderBySQL = this.generateOrderBy(config.orderBy, "postgresql");
+    if (orderBySQL) {
+      sql += `${orderBySQL}\n`;
+    }
+
+    // LIMIT & OFFSET
+    if (config.limit) {
+      sql += `LIMIT ${config.limit}\n`;
+    }
+
+    if (config.offset) {
+      sql += `OFFSET ${config.offset}\n`;
+    }
+
+    return sql.trim() + ";";
   }
 
   protected generateColumnDefinition(column: ColumnDefinition): string {
     const parts: string[] = [];
 
-    // Имя колонки
     parts.push(`  ${this.escapeName(column.name)}`);
 
-    // Тип данных (для PostgreSQL используем SERIAL для автоинкремента)
     if (
       column.constraints.includes("AUTO_INCREMENT") &&
       this.isIntegerType(column.type)
     ) {
-      // Для автоинкрементных INTEGER полей используем SERIAL
       parts.push("SERIAL");
     } else {
       parts.push(this.getDataType(column));
@@ -112,12 +162,7 @@ export class PostgreSQLGenerator extends BaseSQLGenerator {
       parts.push("NOT NULL");
     }
 
-    // UNIQUE
-    // if (column.constraints.includes("UNIQUE")) {
-    //   parts.push("UNIQUE");
-    // }
-
-    // DEFAULT (не добавляем для SERIAL полей)
+    // DEFAULT
     if (
       column.defaultValue !== undefined &&
       column.defaultValue !== "" &&
@@ -131,7 +176,6 @@ export class PostgreSQLGenerator extends BaseSQLGenerator {
     return parts.join(" ");
   }
 
-  // Новый метод для генерации PRIMARY KEY constraints
   protected generatePrimaryKeys(columns: ColumnDefinition[]): string {
     const primaryKeyColumns = columns.filter((col) =>
       col.constraints.includes("PRIMARY_KEY")
@@ -148,7 +192,6 @@ export class PostgreSQLGenerator extends BaseSQLGenerator {
     return `  PRIMARY KEY (${pkColumnNames})`;
   }
 
-  // Новый метод для генерации SERIAL последовательностей (PostgreSQL специфика)
   protected generateSerialColumns(columns: ColumnDefinition[]): string {
     let sql = "";
 
@@ -157,21 +200,12 @@ export class PostgreSQLGenerator extends BaseSQLGenerator {
         column.constraints.includes("AUTO_INCREMENT") &&
         this.isIntegerType(column.type)
       ) {
-        // Для SERIAL полей устанавливаем начальное значение если нужно
-        // Можно добавить кастомные настройки здесь
-        // const dbSpecific = column.dbSpecific?.postgresql;
-        // if (dbSpecific?.startValue) {
-        //   sql += `\nALTER SEQUENCE ${this.escapeName(
-        //     column.name + "_seq"
-        //   )} START WITH ${dbSpecific.startValue};`;
-        // }
       }
     });
 
     return sql;
   }
 
-  // Проверка является ли тип целочисленным
   protected isIntegerType(type: string): boolean {
     return ["INTEGER", "BIGINT", "SMALLINT"].includes(type);
   }
@@ -221,7 +255,6 @@ export class PostgreSQLGenerator extends BaseSQLGenerator {
     }
   }
 
-  // Новый метод для форматирования DEFAULT значений
   protected formatDefaultValue(value: any, columnType?: string): string {
     if (value === null || value === undefined) {
       return "NULL";
@@ -288,6 +321,19 @@ export class PostgreSQLGenerator extends BaseSQLGenerator {
 
     if (value instanceof Date) {
       return `'${value.toISOString()}'`;
+    }
+
+    if (typeof value === "string") {
+      const upperValue = value.toUpperCase();
+      if (
+        upperValue === "NULL" ||
+        upperValue === "CURRENT_TIMESTAMP" ||
+        upperValue === "CURRENT_DATE" ||
+        upperValue === "NOW()"
+      ) {
+        return upperValue === "NOW()" ? "CURRENT_TIMESTAMP" : upperValue;
+      }
+      return `'${this.escapeString(value)}'`;
     }
 
     return `'${this.escapeString(value.toString())}'`;

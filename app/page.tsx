@@ -65,15 +65,9 @@ export default function Home() {
           },
         },
       ],
-      indexes: [],
       relationships: [],
       createdAt: new Date(),
       updatedAt: new Date(),
-      // dbSpecific: {
-      //   mysql: {},
-      //   postgresql: {},
-      //   sqlite: {},
-      // },
     };
 
     setDatabaseSchema({
@@ -142,6 +136,7 @@ export default function Home() {
 
         <DatabaseSchemaEditor
           schema={databaseSchema}
+          selectedDB={selectedDB}
           onSchemaChange={setDatabaseSchema}
           onGenerateSQL={handleGenerateWithValidation}
           isGenerating={isGenerating}

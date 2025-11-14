@@ -19,20 +19,6 @@ export interface ColumnDefinition {
   };
 }
 
-export interface IndexDefinition {
-  id: string;
-  name: string;
-  type: IndexType;
-  columns: string[]; // ID колонок
-  unique: boolean;
-
-  dbSpecific: {
-    mysql?: MySqlIndexConfig;
-    postgresql?: PostgreSqlIndexConfig;
-    sqlite?: SqliteIndexConfig;
-  };
-}
-
 export interface Relationship {
   id: string;
   name: string;
@@ -50,24 +36,10 @@ export interface TableSchema {
   name: string;
   comment?: string;
   columns: ColumnDefinition[];
-  indexes: IndexDefinition[];
   relationships: Relationship[];
   data?: Record<string, any>[];
   createdAt: Date;
   updatedAt: Date;
-  // dbSpecific?: {
-  //   mysql?: {
-  //     engine?: string;
-  //     charset?: string;
-  //     collation?: string;
-  //   };
-  //   postgresql?: {
-  //     tablespace?: string;
-  //   };
-  //   sqlite?: {
-  //     withoutRowid?: boolean;
-  //   };
-  // };
 }
 
 export interface DatabaseSchema {
@@ -94,20 +66,4 @@ export interface PostgreSqlColumnConfig {
 
 export interface SqliteColumnConfig {
   autoIncrement?: boolean;
-}
-
-export interface MySqlIndexConfig {
-  indexType?: "DEFAULT" | "USING BTREE" | "USING HASH";
-  comment?: string;
-  visibility?: "VISIBLE" | "INVISIBLE";
-}
-
-export interface PostgreSqlIndexConfig {
-  method?: "DEFAULT" | "btree" | "hash" | "gist" | "gin" | "spgist" | "brin";
-  tablespace?: string;
-  where?: string;
-}
-
-export interface SqliteIndexConfig {
-  where?: string;
 }

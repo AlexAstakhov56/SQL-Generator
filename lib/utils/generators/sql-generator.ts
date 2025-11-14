@@ -2,33 +2,24 @@ import {
   TableSchema,
   DatabaseType,
   GeneratedSQL,
-  MultiDBGeneratedSQL,
   GenerationOptions,
+  SelectConfig,
+  SelectGenerationOptions,
+  MultiDBGeneratedSQL,
 } from "../../types";
 import { MySQLGenerator } from "./mysql-generator";
 import { PostgreSQLGenerator } from "./postgresql-generator";
 import { SQLiteGenerator } from "./sqlite-generator";
 
 export class SQLGenerator {
-  static generateForAllDBs(
-    schema: TableSchema,
-    options: Partial<GenerationOptions> = {}
+  static generateSelectForAllDBs(
+    config: SelectConfig,
+    options: SelectGenerationOptions = {}
   ): MultiDBGeneratedSQL {
-    const defaultOptions: GenerationOptions = {
-      includeComments: true,
-      includeIfNotExists: true,
-      format: true,
-      ...options,
-    };
-
     return {
-      mysql: this.generateCreateTable(schema, "mysql", defaultOptions),
-      postgresql: this.generateCreateTable(
-        schema,
-        "postgresql",
-        defaultOptions
-      ),
-      sqlite: this.generateCreateTable(schema, "sqlite", defaultOptions),
+      mysql: this.generateSelect(config, "mysql", options),
+      postgresql: this.generateSelect(config, "postgresql", options),
+      sqlite: this.generateSelect(config, "sqlite", options),
     };
   }
 
@@ -86,20 +77,31 @@ export class SQLGenerator {
     }
   }
 
-  static generateInsert(
-    tableName: string,
-    data: Record<string, any>[],
-    dbType: DatabaseType
+  static generateSelect(
+    config: SelectConfig,
+    dbType: DatabaseType,
+    options: SelectGenerationOptions = {}
   ): GeneratedSQL {
     const generator = this.getGenerator(dbType);
 
     try {
-      const sql = generator.generateInsert(tableName, data);
+      const validationResult = this.validateSelectConfig(config, dbType);
+
+      if (validationResult.errors.length > 0) {
+        return {
+          sql: "",
+          dbType,
+          warnings: validationResult.warnings,
+          errors: validationResult.errors,
+        };
+      }
+
+      const sql = generator.generateSelect(config, options);
 
       return {
         sql,
         dbType,
-        warnings: [],
+        warnings: validationResult.warnings,
         errors: [],
       };
     } catch (error) {
@@ -107,9 +109,53 @@ export class SQLGenerator {
         sql: "",
         dbType,
         warnings: [],
-        errors: [`Ошибка генерации INSERT: ${error}`],
+        errors: [`Ошибка генерации SELECT: ${error}`],
       };
     }
+  }
+
+  private static validateSelectConfig(
+    config: SelectConfig,
+    dbType: DatabaseType
+  ): { warnings: string[]; errors: string[] } {
+    const warnings: string[] = [];
+    const errors: string[] = [];
+
+    if (config.selectedTables.length === 0) {
+      errors.push("Не выбраны таблицы для запроса");
+    }
+
+    // Проверка JOIN условий
+    config.joins.forEach((join, index) => {
+      if (!join.leftColumn || !join.rightColumn) {
+        errors.push(
+          `JOIN условие #${index + 1} не имеет выбранных колонок для связи`
+        );
+      }
+    });
+
+    // Проверка WHERE условий
+    config.whereConditions.forEach((condition, index) => {
+      if (!condition.column) {
+        warnings.push(`WHERE условие #${index + 1} не имеет выбранной колонки`);
+      }
+    });
+
+    // Проверка GROUP BY и HAVING
+    if (config.havingConditions.length > 0 && config.groupBy.length === 0) {
+      warnings.push("HAVING условия используются без GROUP BY");
+    }
+
+    // Проверка агрегатных функций с GROUP BY
+    const hasAggregateFunctions = config.selectedColumns.some(
+      (col) => col.aggregateFunction && col.aggregateFunction !== "NONE"
+    );
+
+    if (hasAggregateFunctions && config.groupBy.length === 0) {
+      warnings.push("Используются агрегатные функции без GROUP BY");
+    }
+
+    return { warnings, errors };
   }
 
   private static getGenerator(dbType: DatabaseType) {

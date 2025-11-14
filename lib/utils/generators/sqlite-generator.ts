@@ -1,9 +1,10 @@
-// lib/utils/generators/sqlite-generator.ts
 import {
   TableSchema,
   ColumnDefinition,
   GenerationOptions,
   DEFAULT_GENERATION_OPTIONS,
+  SelectConfig,
+  SelectGenerationOptions,
 } from "../../types";
 import { BaseSQLGenerator } from "./base-generator";
 
@@ -14,10 +15,8 @@ export class SQLiteGenerator extends BaseSQLGenerator {
   ): string {
     const columnsSQL = this.generateColumns(schema.columns, "sqlite");
 
-    // Генерируем PRIMARY KEY отдельно
     const primaryKeysSQL = this.generatePrimaryKeys(schema.columns);
 
-    // Генерируем FOREIGN KEYS
     const foreignKeysSQL = this.generateForeignKeys(
       schema.relationships,
       "sqlite"
@@ -29,48 +28,105 @@ export class SQLiteGenerator extends BaseSQLGenerator {
       sql += "IF NOT EXISTS ";
     }
 
-    sql += `${this.escapeName(schema.name)} (\n`;
+    sql += `${schema.name} (\n`;
     sql += columnsSQL;
 
-    // Добавляем PRIMARY KEY если есть
     if (primaryKeysSQL) {
       sql += `,\n${primaryKeysSQL}`;
     }
 
-    // Добавляем FOREIGN KEYS если есть
     if (foreignKeysSQL) {
       sql += `,\n${foreignKeysSQL}`;
     }
 
     sql += "\n);";
 
-    // Добавляем комментарии если есть (SQLite не поддерживает COMMENT ON)
-    // В SQLite комментарии добавляются отдельными запросами
-    if (schema.comment) {
-      sql += `\n-- ${schema.comment}`;
-    }
-
     return sql;
   }
 
-  generateInsert(tableName: string, data: Record<string, any>[]): string {
-    if (data.length === 0) {
-      return "";
+  generateSelect(
+    config: SelectConfig,
+    options: SelectGenerationOptions = {}
+  ): string {
+    if (config.selectedTables.length === 0) {
+      throw new Error("Не выбраны таблицы для SELECT запроса");
     }
 
-    const columns = Object.keys(data[0]);
-    const escapedColumns = columns.map((col) => this.escapeName(col));
+    const finalOptions = {
+      format: true,
+      includeAliases: true,
+      ...options,
+    };
 
-    const values = data
-      .map(
-        (row) =>
-          `(${columns.map((col) => this.formatValue(row[col])).join(", ")})`
-      )
-      .join(",\n");
+    let sql = "SELECT\n";
 
-    return `INSERT INTO ${this.escapeName(tableName)} (${escapedColumns.join(
-      ", "
-    )})\nVALUES ${values};`;
+    const columnsSQL = this.generateSelectColumns(
+      config.selectedColumns,
+      "sqlite"
+    );
+    sql += `  ${columnsSQL}\n`;
+
+    // FROM
+    sql += `FROM ${config.selectedTables[0]}\n`;
+
+    // JOIN
+    const joinsSQL = this.generateJoins(config.joins, "sqlite");
+    if (joinsSQL) {
+      sql += `${joinsSQL}\n`;
+    }
+
+    // WHERE
+    const whereSQL = this.generateWhereConditions(
+      config.whereConditions,
+      "sqlite"
+    );
+    if (whereSQL) {
+      sql += `${whereSQL}\n`;
+    }
+
+    // GROUP BY
+    const groupBySQL = this.generateGroupBy(config.groupBy, "sqlite");
+    if (groupBySQL) {
+      sql += `${groupBySQL}\n`;
+    }
+
+    // HAVING
+    const havingSQL = this.generateHavingConditions(
+      config.havingConditions,
+      "sqlite"
+    );
+    if (havingSQL) {
+      sql += `${havingSQL}\n`;
+    }
+
+    // ORDER BY
+    const orderBySQL = this.generateOrderBy(config.orderBy, "sqlite");
+    if (orderBySQL) {
+      sql += `${orderBySQL}\n`;
+    }
+
+    // LIMIT & OFFSET
+    const limitOffsetSQL = this.generateLimitOffset(
+      config.limit,
+      config.offset
+    );
+    if (limitOffsetSQL) {
+      sql += `${limitOffsetSQL}\n`;
+    }
+
+    return sql.trim() + ";";
+  }
+
+  protected generateLimitOffset(limit?: number, offset?: number): string {
+    if (limit && offset !== undefined) {
+      return `LIMIT ${limit} OFFSET ${offset}`;
+    }
+
+    if (limit) {
+      return `LIMIT ${limit}`;
+    }
+
+    return "";
   }
 
   protected generateColumnDefinition(column: ColumnDefinition): string {
@@ -87,13 +143,11 @@ export class SQLiteGenerator extends BaseSQLGenerator {
       parts.push("NOT NULL");
     }
 
-    // PRIMARY KEY (только если одна колонка, иначе выносим в отдельный constraint)
     if (column.constraints.includes("PRIMARY_KEY")) {
-      // Для SQLite PRIMARY KEY может быть в определении колонки только если это одна колонка
       parts.push("PRIMARY KEY");
     }
 
-    // AUTOINCREMENT (только для INTEGER PRIMARY KEY)
+    // AUTOINCREMENT
     if (
       column.constraints.includes("AUTO_INCREMENT") &&
       column.constraints.includes("PRIMARY_KEY") &&
@@ -102,12 +156,7 @@ export class SQLiteGenerator extends BaseSQLGenerator {
       parts.push("AUTOINCREMENT");
     }
 
-    // UNIQUE
-    // if (column.constraints.includes("UNIQUE")) {
-    //   parts.push("UNIQUE");
-    // }
-
-    // DEFAULT (не добавляем для AUTOINCREMENT полей)
+    // DEFAULT
     if (
       column.defaultValue !== undefined &&
       column.defaultValue !== "" &&
@@ -121,13 +170,11 @@ export class SQLiteGenerator extends BaseSQLGenerator {
     return parts.join(" ");
   }
 
-  // Переопределяем метод для SQLite (особенности с PRIMARY KEY)
   protected generatePrimaryKeys(columns: ColumnDefinition[]): string {
     const primaryKeyColumns = columns.filter((col) =>
       col.constraints.includes("PRIMARY_KEY")
     );
 
-    // Если первичный ключ составной (несколько колонок), генерируем отдельный constraint
     if (primaryKeyColumns.length > 1) {
       const pkColumnNames = primaryKeyColumns
         .map((col) => this.escapeName(col.name))
@@ -135,30 +182,28 @@ export class SQLiteGenerator extends BaseSQLGenerator {
       return `  PRIMARY KEY (${pkColumnNames})`;
     }
 
-    // Если первичный ключ одной колонки, он уже добавлен в определении колонки
     return "";
   }
 
   protected getDataType(column: ColumnDefinition): string {
-    const { type, length } = column;
+    const { type } = column;
 
-    // SQLite имеет гибкую типизацию, но лучше использовать стандартные типы
     switch (type) {
       case "INTEGER":
         return "INTEGER";
       case "BIGINT":
-        return "INTEGER"; // SQLite использует INTEGER для всех целых чисел
+        return "INTEGER";
       case "SMALLINT":
         return "INTEGER";
       case "VARCHAR":
       case "TEXT":
         return "TEXT";
       case "CHAR":
-        return "TEXT"; // SQLite не различает CHAR и TEXT
+        return "TEXT";
       case "BOOLEAN":
-        return "INTEGER"; // SQLite использует 0/1 для boolean
+        return "INTEGER";
       case "DATE":
-        return "TEXT"; // SQLite хранит даты как TEXT в формате ISO
+        return "TEXT";
       case "DATETIME":
       case "TIMESTAMP":
         return "TEXT";
@@ -223,11 +268,24 @@ export class SQLiteGenerator extends BaseSQLGenerator {
     }
 
     if (typeof value === "boolean") {
-      return value ? "1" : "0"; // SQLite использует 1/0 для boolean
+      return value ? "1" : "0";
     }
 
     if (value instanceof Date) {
       return `'${value.toISOString()}'`;
+    }
+
+    if (typeof value === "string") {
+      const upperValue = value.toUpperCase();
+      if (
+        upperValue === "NULL" ||
+        upperValue === "CURRENT_TIMESTAMP" ||
+        upperValue === "CURRENT_TIME" ||
+        upperValue === "CURRENT_DATE"
+      ) {
+        return upperValue;
+      }
+      return `'${this.escapeString(value)}'`;
     }
 
     return `'${this.escapeString(value.toString())}'`;

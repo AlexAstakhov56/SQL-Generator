@@ -7,7 +7,6 @@ export class MultiTableGenerator {
   ): string {
     const sqlParts: string[] = [];
 
-    // 1. Генерация CREATE TABLE для каждой таблицы
     database.tables.forEach((table) => {
       const tableSQL = this.generateTable(table, dbType, database.tables);
       sqlParts.push(tableSQL);
@@ -25,7 +24,7 @@ export class MultiTableGenerator {
       case "mysql":
         const { MySQLGenerator } = require("./mysql-generator");
         const mysqlGenerator = new MySQLGenerator();
-        mysqlGenerator.setDatabaseSchema?.(allTables); // Передаем схему
+        mysqlGenerator.setDatabaseSchema?.(allTables);
         return mysqlGenerator.generateCreateTable(table, {
           includeIfNotExists: true,
         });
@@ -33,7 +32,7 @@ export class MultiTableGenerator {
       case "postgresql":
         const { PostgreSQLGenerator } = require("./postgresql-generator");
         const postgresGenerator = new PostgreSQLGenerator();
-        postgresGenerator.setDatabaseSchema?.(allTables); // Передаем схему
+        postgresGenerator.setDatabaseSchema?.(allTables);
         return postgresGenerator.generateCreateTable(table, {
           includeIfNotExists: true,
         });
@@ -46,7 +45,6 @@ export class MultiTableGenerator {
           includeIfNotExists: true,
         });
 
-        // Добавляем включение foreign keys для SQLite
         if (table.relationships.length > 0) {
           sql = sqliteGenerator.generateEnableForeignKeys() + "\n\n" + sql;
         }
@@ -57,15 +55,6 @@ export class MultiTableGenerator {
         throw new Error(`Unsupported DB: ${dbType}`);
     }
   }
-
-  // private static generateForeignKeysAlterTable(
-  //   database: DatabaseSchema,
-  //   dbType: DatabaseType
-  // ): string {
-  //   // Если foreign keys уже генерируются в CREATE TABLE, этот метод можно оставить пустым
-  //   // Или использовать для дополнительных constraints
-  //   return "";
-  // }
 
   private static escapeIdentifier(name: string, dbType: DatabaseType): string {
     if (!name) return "";

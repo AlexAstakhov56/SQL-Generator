@@ -1,10 +1,17 @@
 import {
   TableSchema,
   ColumnDefinition,
-  IndexDefinition,
   Relationship,
   DatabaseType,
   GenerationOptions,
+  GroupByCondition,
+  HavingCondition,
+  JoinCondition,
+  OrderByCondition,
+  SelectColumn,
+  SelectConfig,
+  SelectGenerationOptions,
+  WhereCondition,
 } from "../../types";
 
 export abstract class BaseSQLGenerator {
@@ -12,15 +19,13 @@ export abstract class BaseSQLGenerator {
     schema: TableSchema,
     options: GenerationOptions
   ): string;
-  abstract generateInsert(
-    tableName: string,
-    data: Record<string, any>[]
+  abstract generateSelect(
+    config: SelectConfig,
+    options?: SelectGenerationOptions
   ): string;
 
-  // Добавляем опциональный параметр для доступа к полной схеме БД
   protected databaseSchema?: TableSchema[];
 
-  // Метод для установки схемы (будет использоваться в MultiTableGenerator)
   setDatabaseSchema(schema: TableSchema[]): void {
     this.databaseSchema = schema;
   }
@@ -32,17 +37,6 @@ export abstract class BaseSQLGenerator {
     return columns
       .map((column) => this.generateColumnDefinition(column, dbType))
       .join(",\n");
-  }
-
-  protected generateIndexes(
-    indexes: IndexDefinition[],
-    tableName: string,
-    dbType: DatabaseType
-  ): string {
-    return indexes
-      .map((index) => this.generateIndexDefinition(index, tableName, dbType))
-      .filter(Boolean)
-      .join("\n");
   }
 
   protected generateForeignKeys(
@@ -74,55 +68,10 @@ export abstract class BaseSQLGenerator {
   protected abstract formatValue(value: any, dbType: DatabaseType): string;
   protected abstract escapeString(str: string, dbType: DatabaseType): string;
 
-  protected generateIndexDefinition(
-    index: IndexDefinition,
-    tableName: string,
-    dbType: DatabaseType
-  ): string {
-    // Используем реальные имена колонок из index.columns (это массив ID колонок)
-    const columnNames = index.columns.map((colId) => {
-      if (this.databaseSchema) {
-        // Ищем колонку по ID во всей схеме БД
-        for (const table of this.databaseSchema) {
-          const column = table.columns.find((col) => col.id === colId);
-          if (column) return column.name;
-        }
-      }
-      return colId; // fallback - используем ID если не нашли
-    });
-
-    const escapedColumns = columnNames
-      .map((col) => this.escapeName(col, dbType))
-      .join(", ");
-
-    switch (index.type) {
-      case "PRIMARY":
-        return `  PRIMARY KEY (${escapedColumns})`;
-      // case "UNIQUE":
-      //   return `  UNIQUE ${this.escapeName(
-      //     index.name,
-      //     dbType
-      //   )} (${escapedColumns})`;
-      case "INDEX":
-        return `  INDEX ${this.escapeName(
-          index.name,
-          dbType
-        )} (${escapedColumns})`;
-      case "FULLTEXT":
-        return `  FULLTEXT ${this.escapeName(
-          index.name,
-          dbType
-        )} (${escapedColumns})`;
-      default:
-        return "";
-    }
-  }
-
   protected generateForeignKeyDefinition(
     relationship: Relationship,
     dbType: DatabaseType
   ): string {
-    // Получаем реальные имена вместо ID
     const sourceColumnName = this.getColumnNameById(
       relationship.sourceColumnId
     );
@@ -131,7 +80,6 @@ export abstract class BaseSQLGenerator {
       relationship.targetColumnId
     );
 
-    // Если не нашли реальные имена, пропускаем эту связь
     if (!sourceColumnName || !targetTableName || !targetColumnName) {
       console.warn(
         "Пропускаем foreign key с отсутствующими именами:",
@@ -153,7 +101,161 @@ export abstract class BaseSQLGenerator {
     return sql;
   }
 
-  // Вспомогательные методы для получения реальных имен по ID
+  protected generateSelectColumns(
+    columns: SelectColumn[],
+    dbType: DatabaseType
+  ): string {
+    if (columns.length === 0) {
+      return "*";
+    }
+
+    return columns
+      .map((col) => {
+        let expression: string;
+
+        if (col.aggregateFunction && col.aggregateFunction !== "NONE") {
+          const columnRef =
+            col.column === "*" ? col.column : `${col.table}.${col.column}`;
+          expression = `${col.aggregateFunction}(${columnRef})`;
+        } else {
+          expression = `${col.table}.${col.column}`;
+        }
+
+        const alias = col.aggregateAlias || col.alias;
+        if (alias) {
+          return `${expression} AS ${alias}`;
+        }
+
+        return expression;
+      })
+      .join(",\n  ");
+  }
+
+  protected generateJoins(
+    joins: JoinCondition[],
+    dbType: DatabaseType
+  ): string {
+    return joins
+      .map((join) => {
+        if (!join.leftColumn || !join.rightColumn) return "";
+
+        return `${join.type} JOIN ${join.rightTable} ON ${join.leftTable}.${join.leftColumn} = ${join.rightTable}.${join.rightColumn}`;
+      })
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  protected generateWhereConditions(
+    conditions: WhereCondition[],
+    dbType: DatabaseType
+  ): string {
+    const validConditions = conditions.filter(
+      (condition) =>
+        condition.column &&
+        (condition.operator.includes("NULL") || condition.value !== "")
+    );
+
+    if (validConditions.length === 0) return "";
+
+    return (
+      "WHERE\n  " +
+      validConditions
+        .map((condition, index) => {
+          const columnRef = `${condition.table}.${condition.column}`;
+          let conditionStr: string;
+
+          if (condition.operator.includes("NULL")) {
+            conditionStr = `${columnRef} ${condition.operator}`;
+          } else {
+            conditionStr = `${columnRef} ${
+              condition.operator
+            } ${this.formatValue(condition.value, dbType)}`;
+          }
+
+          return `${
+            index > 0 ? condition.logicalOperator + " " : ""
+          }${conditionStr}`;
+        })
+        .join("\n  ")
+    );
+  }
+
+  protected generateGroupBy(
+    conditions: GroupByCondition[],
+    dbType: DatabaseType
+  ): string {
+    const validConditions = conditions.filter((condition) => condition.column);
+
+    if (validConditions.length === 0) return "";
+
+    const columns = validConditions
+      .map((condition) => `${condition.table}.${condition.column}`)
+      .join(", ");
+
+    return `GROUP BY ${columns}`;
+  }
+
+  protected generateHavingConditions(
+    conditions: HavingCondition[],
+    dbType: DatabaseType
+  ): string {
+    const validConditions = conditions.filter(
+      (condition) => condition.column && condition.value !== ""
+    );
+
+    if (validConditions.length === 0) return "";
+
+    return (
+      "HAVING\n  " +
+      validConditions
+        .map((condition, index) => {
+          const conditionStr = `${condition.column} ${
+            condition.operator
+          } ${this.formatValue(condition.value, dbType)}`;
+          return `${
+            index > 0 ? condition.logicalOperator + " " : ""
+          }${conditionStr}`;
+        })
+        .join("\n  ")
+    );
+  }
+
+  protected generateOrderBy(
+    conditions: OrderByCondition[],
+    dbType: DatabaseType
+  ): string {
+    const validConditions = conditions.filter((condition) => condition.column);
+
+    if (validConditions.length === 0) return "";
+
+    const columns = validConditions
+      .map(
+        (condition) =>
+          `${condition.table}.${condition.column} ${condition.direction}`
+      )
+      .join(", ");
+
+    return `ORDER BY ${columns}`;
+  }
+
+  protected generateLimitOffset(
+    limit?: number,
+    offset?: number,
+    dbType?: DatabaseType
+  ): string {
+    let result = "";
+
+    if (limit) {
+      result += `LIMIT ${limit}`;
+    }
+
+    if (offset) {
+      result += ` OFFSET ${offset}`;
+    }
+
+    return result;
+  }
+
   private getTableNameById(tableId: string): string | undefined {
     if (!this.databaseSchema) return undefined;
 
