@@ -9,9 +9,25 @@ interface SelectQueryBuilderProps {
   onQueryGenerated: (sql: string) => void;
 }
 
+type AggregateFunction = "COUNT" | "MIN" | "MAX" | "SUM" | "AVG" | "NONE";
+
+interface SelectColumn {
+  table: string;
+  column: string;
+  alias?: string;
+  aggregateFunction?: AggregateFunction;
+  aggregateAlias?: string;
+}
+
 interface SelectConfig {
   selectedTables: string[];
-  selectedColumns: { table: string; column: string; alias?: string }[];
+  selectedColumns: {
+    table: string;
+    column: string;
+    alias?: string;
+    aggregateFunction?: AggregateFunction;
+    aggregateAlias?: string;
+  }[];
   joins: {
     id: string;
     leftTable: string;
@@ -95,11 +111,15 @@ export function SelectQueryBuilder({
   }, [config.selectedTables, schema.tables]);
 
   const availableGroupByColumns = useMemo(() => {
-    return config.selectedColumns.map((col) => ({
-      table: col.table,
-      column: col.column,
-      fullName: `${col.table}.${col.column}`,
-    }));
+    return config.selectedColumns
+      .filter(
+        (col) => !col.aggregateFunction || col.aggregateFunction === "NONE"
+      )
+      .map((col) => ({
+        table: col.table,
+        column: col.column,
+        fullName: `${col.table}.${col.column}`,
+      }));
   }, [config.selectedColumns]);
 
   const getTableColumns = (tableName: string) => {
@@ -108,7 +128,9 @@ export function SelectQueryBuilder({
   };
 
   const hasColumnNameConflicts = useMemo(() => {
-    const columnNames = config.selectedColumns.map((col) => col.column);
+    const columnNames = config.selectedColumns.map(
+      (col) => col.aggregateAlias || col.alias || col.column
+    );
     return new Set(columnNames).size !== columnNames.length;
   }, [config.selectedColumns]);
 
@@ -116,24 +138,56 @@ export function SelectQueryBuilder({
     `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
   const updateColumnAliases = (
-    columns: { table: string; column: string }[]
+    columns: {
+      table: string;
+      column: string;
+      aggregateFunction?: AggregateFunction;
+      aggregateAlias?: string;
+    }[]
   ) => {
-    const columnGroups: { [key: string]: { table: string; column: string }[] } =
-      {};
+    const columnGroups: {
+      [key: string]: {
+        table: string;
+        column: string;
+        aggregateFunction?: AggregateFunction;
+      }[];
+    } = {};
 
     columns.forEach((col) => {
-      if (!columnGroups[col.column]) {
-        columnGroups[col.column] = [];
+      const key =
+        col.aggregateFunction && col.aggregateFunction !== "NONE"
+          ? `${col.aggregateFunction}_${col.column}`
+          : col.column;
+
+      if (!columnGroups[key]) {
+        columnGroups[key] = [];
       }
-      columnGroups[col.column].push(col);
+      columnGroups[key].push(col);
     });
 
     return columns.map((col) => {
-      const group = columnGroups[col.column];
-      const needsAlias = group && group.length > 1;
-      const alias = needsAlias ? `${col.table}_${col.column}` : undefined;
+      const key =
+        col.aggregateFunction && col.aggregateFunction !== "NONE"
+          ? `${col.aggregateFunction}_${col.column}`
+          : col.column;
 
-      return { ...col, alias };
+      const group = columnGroups[key];
+      const needsAlias = group && group.length > 1;
+
+      let alias: string | undefined;
+      let aggregateAlias: string | undefined;
+
+      if (col.aggregateFunction && col.aggregateFunction !== "NONE") {
+        // Для агрегатных функций генерируем алиас
+        aggregateAlias = needsAlias
+          ? `${col.aggregateFunction.toLowerCase()}_${col.table}_${col.column}`
+          : `${col.aggregateFunction.toLowerCase()}_${col.column}`;
+      } else {
+        // Для обычных колонок
+        alias = needsAlias ? `${col.table}_${col.column}` : undefined;
+      }
+
+      return { ...col, alias, aggregateAlias };
     });
   };
 
@@ -181,17 +235,77 @@ export function SelectQueryBuilder({
   const handleColumnToggle = (table: string, column: string) => {
     setConfig((prev) => {
       const isSelected = prev.selectedColumns.some(
-        (c) => c.table === table && c.column === column
+        (c) =>
+          c.table === table &&
+          c.column === column &&
+          (!c.aggregateFunction || c.aggregateFunction === "NONE")
       );
 
-      let newSelectedColumns;
+      let newSelectedColumns: SelectColumn[];
       if (isSelected) {
+        // Удаляем обычную колонку (без агрегатной функции)
         newSelectedColumns = prev.selectedColumns.filter(
-          (c) => !(c.table === table && c.column === column)
+          (c) =>
+            !(
+              c.table === table &&
+              c.column === column &&
+              (!c.aggregateFunction || c.aggregateFunction === "NONE")
+            )
         );
       } else {
-        newSelectedColumns = [...prev.selectedColumns, { table, column }];
+        // Добавляем обычную колонку
+        newSelectedColumns = [
+          ...prev.selectedColumns,
+          {
+            table,
+            column,
+            aggregateFunction: "NONE",
+          },
+        ];
       }
+
+      const columnsWithAliases = updateColumnAliases(newSelectedColumns);
+      return {
+        ...prev,
+        selectedColumns: columnsWithAliases,
+      };
+    });
+  };
+
+  const handleAddAggregateFunction = (
+    table: string,
+    column: string,
+    func: AggregateFunction
+  ) => {
+    setConfig((prev) => {
+      const newSelectedColumns: SelectColumn[] = [
+        ...prev.selectedColumns,
+        {
+          table,
+          column,
+          aggregateFunction: func,
+        },
+      ];
+
+      const columnsWithAliases = updateColumnAliases(newSelectedColumns);
+      return {
+        ...prev,
+        selectedColumns: columnsWithAliases,
+      };
+    });
+  };
+
+  // Функция для обновления агрегатной функции
+  const handleUpdateAggregateFunction = (
+    index: number,
+    func: AggregateFunction
+  ) => {
+    setConfig((prev) => {
+      const newSelectedColumns = [...prev.selectedColumns];
+      newSelectedColumns[index] = {
+        ...newSelectedColumns[index],
+        aggregateFunction: func,
+      };
 
       const columnsWithAliases = updateColumnAliases(newSelectedColumns);
 
@@ -200,6 +314,14 @@ export function SelectQueryBuilder({
         selectedColumns: columnsWithAliases,
       };
     });
+  };
+
+  // Функция для удаления колонки (обычной или агрегатной)
+  const handleRemoveColumn = (index: number) => {
+    setConfig((prev) => ({
+      ...prev,
+      selectedColumns: prev.selectedColumns.filter((_, i) => i !== index),
+    }));
   };
 
   const handleAddGroupBy = () => {
@@ -392,10 +514,23 @@ export function SelectQueryBuilder({
       sql += "  *\n";
     } else {
       const columnLines = config.selectedColumns.map((col) => {
-        const baseColumn = `${col.table}.${col.column}`;
-        return col.alias
-          ? `  ${baseColumn} as ${col.alias}`
-          : `  ${baseColumn}`;
+        if (col.aggregateFunction && col.aggregateFunction !== "NONE") {
+          // Для агрегатных функций
+          const baseExpression =
+            col.column === "*"
+              ? `${col.aggregateFunction}(${col.column})`
+              : `${col.aggregateFunction}(${col.table}.${col.column})`;
+
+          return col.aggregateAlias
+            ? `  ${baseExpression} as ${col.aggregateAlias}`
+            : `  ${baseExpression}`;
+        } else {
+          // Для обычных колонок
+          const baseColumn = `${col.table}.${col.column}`;
+          return col.alias
+            ? `  ${baseColumn} as ${col.alias}`
+            : `  ${baseColumn}`;
+        }
       });
       sql += columnLines.join(",\n") + "\n";
     }
@@ -507,6 +642,11 @@ export function SelectQueryBuilder({
       border: "border-indigo-200",
       text: "text-indigo-800",
     },
+    aggregate: {
+      bg: "bg-pink-50",
+      border: "border-pink-200",
+      text: "text-pink-800",
+    },
   };
 
   return (
@@ -537,7 +677,7 @@ export function SelectQueryBuilder({
           {config.selectedTables.length > 0 && (
             <div className="bg-white border rounded-lg p-4">
               <h3 className="font-medium text-xl text-gray-900 mb-3">
-                🎯 Выбор колонок
+                🎯 Выбор колонок и агрегатных функций
               </h3>
               {hasColumnNameConflicts && (
                 <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-md text-yellow-800">
@@ -545,43 +685,193 @@ export function SelectQueryBuilder({
                   добавлены алиасы.
                 </div>
               )}
-              <div className="max-h-60 overflow-y-auto space-y-2">
+              <div className="max-h-96 overflow-y-auto space-y-2">
                 {availableColumns.map((col, index) => {
-                  const isSelected = config.selectedColumns.some(
-                    (c) => c.table === col.table && c.column === col.column
-                  );
-                  const selectedColumn = config.selectedColumns.find(
-                    (c) => c.table === col.table && c.column === col.column
+                  // Исправленная логика проверки выбранных колонок
+                  const isSelectedAsRegular = config.selectedColumns.some(
+                    (c) =>
+                      c.table === col.table &&
+                      c.column === col.column &&
+                      (!c.aggregateFunction || c.aggregateFunction === "NONE")
                   );
 
                   return (
-                    <label
+                    <div
                       key={index}
-                      className="flex items-center space-x-2 p-1 hover:bg-gray-50 rounded"
+                      className="p-2 border border-gray-200 rounded hover:bg-gray-50"
                     >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() =>
-                          handleColumnToggle(col.table, col.column)
-                        }
-                        className="accent-blue-400 w-5 h-5 cursor-pointer"
-                      />
-                      <span className="text-lg cursor-pointer font-mono flex-1">
-                        {col.table}.{col.column}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        ({col.type})
-                      </span>
-                      {selectedColumn?.alias && (
-                        <span className="text-xs bg-blue-100 text-blue-800 px-1 rounded">
-                          as {selectedColumn.alias}
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={isSelectedAsRegular}
+                          onChange={() =>
+                            handleColumnToggle(col.table, col.column)
+                          }
+                          className="accent-blue-400 w-5 h-5 cursor-pointer"
+                        />
+                        <span className="text-lg cursor-pointer font-mono flex-1">
+                          {col.table}.{col.column}
                         </span>
-                      )}
-                    </label>
+                        <span className="text-xs text-gray-500">
+                          ({col.type})
+                        </span>
+                        {isSelectedAsRegular && (
+                          <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                            выбрана
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Кнопки для добавления агрегатных функций */}
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() =>
+                            handleAddAggregateFunction(
+                              col.table,
+                              col.column,
+                              "COUNT"
+                            )
+                          }
+                        >
+                          COUNT
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() =>
+                            handleAddAggregateFunction(
+                              col.table,
+                              col.column,
+                              "SUM"
+                            )
+                          }
+                        >
+                          SUM
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() =>
+                            handleAddAggregateFunction(
+                              col.table,
+                              col.column,
+                              "AVG"
+                            )
+                          }
+                        >
+                          AVG
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() =>
+                            handleAddAggregateFunction(
+                              col.table,
+                              col.column,
+                              "MIN"
+                            )
+                          }
+                        >
+                          MIN
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() =>
+                            handleAddAggregateFunction(
+                              col.table,
+                              col.column,
+                              "MAX"
+                            )
+                          }
+                        >
+                          MAX
+                        </Button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
+
+              {/* Список выбранных колонок и агрегатных функций */}
+              {config.selectedColumns.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="font-medium text-lg text-gray-900 mb-2">
+                    Выбранные колонки и функции:
+                  </h4>
+                  <div className="space-y-2">
+                    {config.selectedColumns.map((col, index) => (
+                      <div
+                        key={index}
+                        className={`p-3 rounded-lg border ${
+                          col.aggregateFunction &&
+                          col.aggregateFunction !== "NONE"
+                            ? `${sectionColors.aggregate.bg} ${sectionColors.aggregate.border}`
+                            : "bg-gray-50 border-gray-200"
+                        }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div className="flex-1">
+                            <div className="font-mono text-md">
+                              {col.aggregateFunction &&
+                              col.aggregateFunction !== "NONE" ? (
+                                <>
+                                  {col.aggregateFunction}({col.table}.
+                                  {col.column})
+                                  {col.aggregateAlias && (
+                                    <span className="ml-2 text-blue-600">
+                                      as {col.aggregateAlias}
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  {col.table}.{col.column}
+                                  {col.alias && (
+                                    <span className="ml-2 text-blue-600">
+                                      as {col.alias}
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {col.aggregateFunction &&
+                              col.aggregateFunction !== "NONE" && (
+                                <select
+                                  value={col.aggregateFunction}
+                                  onChange={(e) =>
+                                    handleUpdateAggregateFunction(
+                                      index,
+                                      e.target.value as AggregateFunction
+                                    )
+                                  }
+                                  className="text-sm border rounded px-2 py-1 bg-white"
+                                >
+                                  <option value="COUNT">COUNT</option>
+                                  <option value="SUM">SUM</option>
+                                  <option value="AVG">AVG</option>
+                                  <option value="MIN">MIN</option>
+                                  <option value="MAX">MAX</option>
+                                </select>
+                              )}
+                            <Button
+                              onClick={() => handleRemoveColumn(index)}
+                              size="sm"
+                              variant="danger"
+                            >
+                              ×
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1252,6 +1542,7 @@ export function SelectQueryBuilder({
                   const allColumns = availableColumns.map((col) => ({
                     table: col.table,
                     column: col.column,
+                    aggregateFunction: "NONE" as AggregateFunction,
                   }));
                   const columnsWithAliases = updateColumnAliases(allColumns);
                   setConfig((prev) => ({
