@@ -1,5 +1,5 @@
 import { Relationship, TableSchema } from "@/lib/types";
-import { ColumnRow } from "./schema/column-row";
+import { ColumnRow } from "./column-row";
 
 interface TableCardProps {
   table: TableSchema;

@@ -2,7 +2,7 @@
 
 import { DatabaseSchema, TableSchema } from "@/lib/types";
 import { useState } from "react";
-import { TableCard } from "../table-card";
+import { TableCard } from "./table-card";
 import { TableDataModal } from "./table-data-modal";
 
 interface DatabaseSchemaVisualizationProps {
