@@ -59,23 +59,23 @@ export function SQLPreview({
 
   return (
     <div className="bg-white border rounded-lg overflow-hidden">
-      <div className="border-b">
-        <nav className="flex -mb-px">
+      <div className="border-b overflow-x-auto">
+        <nav className="flex -mb-px min-w-max md:min-w-0">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 cursor-pointer py-3 px-4 text-md font-medium border-b-2 transition-colors ${
+              className={`flex items-center gap-1.5 md:gap-2 cursor-pointer py-2.5 md:py-3 px-3 md:px-4 text-sm md:text-md font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? "border-blue-500 text-blue-600"
                   : "border-transparent text-gray-600 hover:text-black hover:border-gray-300"
               }`}
             >
-              <span>{tab.icon}</span>
-              {tab.name}
+              <span className="text-base md:text-lg">{tab.icon}</span>
+              <span className="hidden md:inline">{tab.name}</span>
               {tab.id === "test" && testResults.length > 0 && (
                 <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs ${
+                  className={`inline-flex items-center px-1.5 md:px-2 py-0.5 rounded-full text-xs font-medium ${
                     testResults.some((r) => !r.result.success)
                       ? "bg-red-100 text-red-800"
                       : "bg-green-100 text-green-800"
@@ -90,17 +90,17 @@ export function SQLPreview({
         </nav>
       </div>
 
-      <div className="p-4">
+      <div className="p-3 md:p-4 lg:p-5">
         {activeTab === "create" && (
           <div>
             <div className="bg-gray-900 rounded-lg shadow-sm border border-gray-700">
-              <div className="flex justify-between items-center p-4 border-b border-gray-700">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-medium text-gray-300 bg-gray-800 px-2 py-1 rounded">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-3 md:p-4 border-b border-gray-700">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm md:text-base lg:text-lg font-medium text-gray-300 bg-gray-800 px-2 py-1 rounded">
                     {dbType.toUpperCase()}
                   </span>
                   {sql && (
-                    <span className="text-md text-gray-500">
+                    <span className="text-xs md:text-sm text-gray-500">
                       {createLineCount} lines
                     </span>
                   )}
@@ -108,14 +108,14 @@ export function SQLPreview({
                 {sql && (
                   <button
                     onClick={() => navigator.clipboard.writeText(sql)}
-                    className="text-md cursor-pointer text-gray-400 hover:text-white bg-gray-800 px-3 py-1 rounded transition-colors"
+                    className="text-sm md:text-base cursor-pointer text-gray-400 hover:text-white bg-gray-800 px-3 md:px-4 py-1.5 md:py-2 rounded transition-colors w-full sm:w-auto text-center"
                   >
                     📋 Копировать
                   </button>
                 )}
               </div>
-              <div className="p-4">
-                <pre className="text-green-400 font-mono text-md whitespace-pre-wrap overflow-x-auto">
+              <div className="p-3 md:p-4">
+                <pre className="text-green-400 font-mono text-xs md:text-sm lg:text-base whitespace-pre-wrap overflow-x-auto">
                   {sql || "// SQL будет сгенерирован здесь"}
                 </pre>
               </div>
@@ -126,13 +126,13 @@ export function SQLPreview({
         {activeTab === "select" && (
           <div>
             <div className="bg-gray-900 rounded-lg shadow-sm border border-gray-700">
-              <div className="flex justify-between items-center p-4 border-b border-gray-700">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-medium text-gray-300 bg-gray-800 px-2 py-1 rounded">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-3 md:p-4 border-b border-gray-700">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm md:text-base lg:text-lg font-medium text-gray-300 bg-gray-800 px-2 py-1 rounded">
                     {dbType.toUpperCase()}
                   </span>
                   {sql && (
-                    <span className="text-md text-gray-500">
+                    <span className="text-xs md:text-sm text-gray-500">
                       {selectLineCount} lines
                     </span>
                   )}
@@ -140,14 +140,14 @@ export function SQLPreview({
                 {selectSql && (
                   <button
                     onClick={() => navigator.clipboard.writeText(selectSql)}
-                    className="text-md cursor-pointer text-gray-400 hover:text-white bg-gray-800 px-3 py-1 rounded transition-colors"
+                    className="text-sm md:text-base cursor-pointer text-gray-400 hover:text-white bg-gray-800 px-3 md:px-4 py-1.5 md:py-2 rounded transition-colors w-full sm:w-auto text-center"
                   >
                     📋 Копировать
                   </button>
                 )}
               </div>
-              <div className="p-4">
-                <pre className="text-green-400 font-mono text-md whitespace-pre-wrap overflow-x-auto">
+              <div className="p-3 md:p-4">
+                <pre className="text-green-400 font-mono text-xs md:text-sm lg:text-base whitespace-pre-wrap overflow-x-auto">
                   {selectSql || "// SQL будет сгенерирован здесь"}
                 </pre>
               </div>
@@ -156,7 +156,7 @@ export function SQLPreview({
         )}
 
         {activeTab === "test" && (
-          <div className="space-y-4">
+          <div className="space-y-3 md:space-y-4">
             <QueryTester
               sql={sql}
               selectSql={selectSql}
